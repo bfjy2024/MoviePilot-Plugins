@@ -601,5 +601,17 @@
     "history": {
       "v1.4.1": "MoviePilot V2 版本登录壁纸本地化插件"
     }
-  }
+  },
+  "SiteAssessment": {
+    "name": "站点考核状态",
+    "description": "自动获取站点考核情况并在仪表板显示，支持考核临近时发送通知。",
+    "labels": "站点",
+    "version": "1.0",
+    "icon": "statistic.png",
+    "author": "yinghualao,bfjy",
+    "level": 1,
+    "history": {
+    	"v1.0": "初始版本"
+    }
+  }   
 }
