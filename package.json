@@ -1054,7 +1054,7 @@
     "level": 1,
     "v2": true
   },
-  "Siteassessment": {
+  "SiteAssessment": {
     "name": "站点考核状态",
     "description": "自动获取站点考核情况并在仪表板显示，支持考核临近时发送通知。",
     "labels": "站点",
