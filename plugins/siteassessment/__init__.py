@@ -20,6 +20,7 @@ from app.plugins import _PluginBase
 from app.schemas.types import EventType, NotificationType
 from app.utils.http import RequestUtils
 from app.utils.string import StringUtils
+from html import unescape
 
 
 class SiteAssessment(_PluginBase):
@@ -32,9 +33,9 @@ class SiteAssessment(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/statistic.png"
     # 插件版本
-    plugin_version = "1.1"
+    plugin_version = "1.2"
     # 插件作者
-    plugin_author = "Claude,dalao,bfjy"
+    plugin_author = "yinghualao,bfjy"
     # 作者主页
     author_url = "https://bfjy2024.github.io/bfjy"
     # 插件配置项ID前缀
@@ -80,6 +81,17 @@ class SiteAssessment(_PluginBase):
         '%Y-%m-%d',
         '%Y/%m/%d',
     )
+
+    # 状态关键词映射（简繁体）- 注意：否定词必须在肯定词之前检查
+    _STATUS_KEYWORDS: Dict[str, bool] = {
+        # 否定词（必须先检查）
+        '未通过': False, '未通過': False, '不合格': False,
+        '失敗': False, '失败': False, '未達標': False, '未达标': False,
+        '未完成': False, 'fail': False,
+        # 肯定词
+        '通过': True, '通過': True, '已通过': True, '已通過': True,
+        '合格': True, '達標': True, '达标': True, 'pass': True,
+    }
 
     def init_plugin(self, config: dict = None):
         """初始化插件"""
@@ -535,55 +547,278 @@ class SiteAssessment(_PluginBase):
             logger.error(f"抓取站点 {site.name} 考核信息失败: {e}")
             return None
 
+    def __normalize_html(self, html: str) -> Tuple[str, List[str]]:
+        """
+        将HTML标准化为换行分隔的纯文本
+        返回: (标准化文本, 行列表)
+        """
+        text = unescape(html)
+        # 移除script、style、noscript等标签及其内容
+        text = re.sub(r'(?is)<script[^>]*>.*?</script>', '', text)
+        text = re.sub(r'(?is)<style[^>]*>.*?</style>', '', text)
+        text = re.sub(r'(?is)<noscript[^>]*>.*?</noscript>', '', text)
+        # 将各种换行标签转为换行符
+        text = re.sub(r'(?i)<br\s*/?>', '\n', text)
+        text = re.sub(r'(?i)</?(?:p|div|li|tr|td|h\d)[^>]*>', '\n', text)
+        # 移除所有HTML标签
+        text = re.sub(r'<[^>]+>', '', text)
+        # 标准化空白字符
+        text = text.replace('\xa0', ' ')
+        # 按行分割并清理
+        lines = []
+        for line in text.splitlines():
+            cleaned = re.sub(r'[ \t\u3000]+', ' ', line).strip()
+            if cleaned:
+                lines.append(cleaned)
+        return '\n'.join(lines), lines
+
+    def __extract_time_from_title(self, html: str) -> Optional[str]:
+        """从HTML的title属性中提取结束时间"""
+        # 匹配 title="2026-01-18 22:36:27" 格式
+        match = re.search(
+            r'title=["\'](\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})["\']',
+            html
+        )
+        if match:
+            return match.group(1)
+        return None
+
     def __parse_assessment_html(self, html: str) -> Optional[Dict[str, Any]]:
-        """解析考核HTML信息"""
+        """解析考核HTML信息（支持简繁体中文）"""
         if not html:
             return None
 
-        # 匹配考核名称（支持多种格式）
-        name_match = re.search(r'名称[：:]\s*(.+?)(?:<br|<BR|\\n)', html, re.IGNORECASE)
-        if not name_match:
+        # 在标准化前提取title属性中的时间（用于倒计时格式）
+        title_time = self.__extract_time_from_title(html)
+
+        # 标准化HTML
+        normalized_text, lines = self.__normalize_html(html)
+
+        # 提取考核名称和位置（支持简繁体）
+        name, name_index = self.__extract_assessment_name(lines)
+        if not name:
             logger.debug("未找到考核名称")
             return None
 
-        assessment = {'name': name_match.group(1).strip(), 'metrics': []}
-        logger.info(f"检测到考核: {assessment['name']}")
+        assessment = {'name': name, 'metrics': []}
+        logger.info(f"检测到考核: {name}")
 
-        # 只在名称之后的内容中搜索时间和指标（避免匹配到页面其他区块）
-        content_after_name = html[name_match.start():]
+        # 只在名称之后的行中搜索时间和指标
+        lines_after_name = lines[name_index:]
 
-        # 匹配时间（支持多种日期时间格式）
-        time_patterns = [
-            r'时间[：:]\s*(\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}:\d{2})\s*~\s*(\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}:\d{2})',
-            r'时间[：:]\s*(\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2})\s*~\s*(\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2})',
-            r'时间[：:]\s*(\d{4}[-/]\d{2}[-/]\d{2})\s*~\s*(\d{4}[-/]\d{2}[-/]\d{2})',
-        ]
-        for pattern in time_patterns:
-            time_match = re.search(pattern, content_after_name)
-            if time_match:
-                assessment['start_time'] = time_match.group(1).strip()
-                assessment['end_time'] = time_match.group(2).strip()
-                logger.debug(f"解析时间: {assessment['start_time']} ~ {assessment['end_time']}")
-                break
+        # 提取时间范围（标准格式优先，title属性作为备选）
+        start_time, end_time = self.__extract_time_range(lines_after_name)
+        if start_time and end_time:
+            assessment['start_time'] = start_time
+            assessment['end_time'] = end_time
+            logger.debug(f"解析时间: {start_time} ~ {end_time}")
+        elif title_time:
+            # 标准格式未找到时间，使用title属性时间
+            assessment['end_time'] = title_time
+            logger.debug(f"从title属性解析结束时间: {title_time}")
 
-        # 匹配各项指标（在考核区块内搜索）
-        metric_pattern = r'指标\d*[：:]\s*([^,，]+)[,，]\s*要求[：:]\s*([^,，]+)[,，]\s*当前[：:]\s*([^,，]+)[,，]\s*结果[：:].*?(未通过|通过)'
-        for match in re.finditer(metric_pattern, content_after_name, re.DOTALL):
-            result_text = match.group(4)
-            metric = {
-                'name': match.group(1).strip(),
-                'required': match.group(2).strip(),
-                'current': match.group(3).strip(),
-                'passed': result_text == '通过'
-            }
-            assessment['metrics'].append(metric)
-            logger.debug(f"解析指标: {metric}")
+        # 提取指标
+        metrics = self.__extract_metrics(lines_after_name)
+        assessment['metrics'] = metrics
 
-        if assessment['metrics']:
-            logger.info(f"共解析 {len(assessment['metrics'])} 个考核指标")
+        if metrics:
+            logger.info(f"共解析 {len(metrics)} 个考核指标")
             return assessment
 
         logger.debug("未找到考核指标")
+        return None
+
+    def __extract_assessment_name(self, lines: List[str]) -> Tuple[Optional[str], int]:
+        """提取考核名称（支持简繁体），返回(名称, 行索引)"""
+        # 模式1：标准格式 "名称：xxx"
+        name_pattern = re.compile(
+            r'(?:考核)?(?:名[称稱字]|项目|項目)[：:]\s*(?P<value>.+)',
+            re.IGNORECASE
+        )
+        # 模式2：倒计时格式 "离xxx考核结束还有"
+        countdown_pattern = re.compile(
+            r'离(?P<name>.+?)考核结束',
+            re.IGNORECASE
+        )
+
+        for i, line in enumerate(lines):
+            # 先尝试标准格式
+            match = name_pattern.search(line)
+            if match:
+                return match.group('value').strip(), i
+            # 再尝试倒计时格式
+            match = countdown_pattern.search(line)
+            if match:
+                return f"{match.group('name').strip()}考核", i
+        return None, 0
+
+    def __extract_time_range(self, lines: List[str]) -> Tuple[Optional[str], Optional[str]]:
+        """提取时间范围（支持简繁体）"""
+        # 时间触发关键词（支持简繁体：时间/時間/期间/期間）
+        time_trigger = re.compile(r'(?:考核)?(?:[时時][间間]|期[間间]|周期|期限)', re.IGNORECASE)
+        # 日期范围模式
+        date_pattern = r'\d{4}[./-]\d{1,2}[./-]\d{1,2}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?'
+        date_range = re.compile(rf'({date_pattern})\s*(?:~|～|至|到|—|-)\s*({date_pattern})')
+
+        for line in lines:
+            if not time_trigger.search(line):
+                continue
+            match = date_range.search(line)
+            if match:
+                return match.group(1).strip(), match.group(2).strip()
+        return None, None
+
+    def __extract_metrics(self, lines: List[str]) -> List[Dict[str, Any]]:
+        """提取考核指标（支持简繁体和多种格式）"""
+        metrics = []
+        # 模式1：标准格式 "指标1：上传量"
+        metric_header = re.compile(
+            r'(?:(?:考核)?(?:指[标標]|项目|項目))\s*(?P<index>\d+)?[：:]\s*(?P<name>[^,，。；;]+)',
+            re.IGNORECASE
+        )
+        # 模式2：简单格式 "上传量： 已通过" 或 "上传量： 还需要 X GB"
+        simple_metric = re.compile(
+            r'^(?P<name>[\u4e00-\u9fa5]+)[：:]\s*(?P<value>.+)$'
+        )
+        # 跳过的行（非指标内容）- 使用更精确的模式
+        skip_patterns = [
+            r'离.+考核结束',  # 倒计时行
+            r'通过捐赠',      # 捐赠提示
+            r'温馨提示',      # 提示信息
+        ]
+
+        current_metric = None
+        for line in lines:
+            # 跳过URL
+            if '://' in line or line.startswith('http'):
+                continue
+            # 跳过特定模式的行
+            if any(re.search(p, line) for p in skip_patterns):
+                continue
+
+            # 先尝试标准格式
+            header_match = metric_header.search(line)
+            if header_match:
+                if current_metric:
+                    metrics.append(current_metric)
+                current_metric = {
+                    'name': header_match.group('name').strip(),
+                    'index': int(header_match.group('index')) if header_match.group('index') else None,
+                    'required': None,
+                    'current': None,
+                    'passed': None,
+                }
+                remainder = line[header_match.end():]
+                self.__parse_metric_details(current_metric, remainder)
+                continue
+
+            # 再尝试简单格式
+            simple_match = simple_metric.match(line)
+            if simple_match:
+                metric = self.__parse_simple_metric(
+                    simple_match.group('name'),
+                    simple_match.group('value')
+                )
+                if metric:
+                    metrics.append(metric)
+                continue
+
+            # 继续解析当前指标详情
+            if current_metric:
+                self.__parse_metric_details(current_metric, line)
+
+        if current_metric:
+            metrics.append(current_metric)
+
+        return metrics
+
+    def __parse_simple_metric(self, name: str, value: str) -> Optional[Dict[str, Any]]:
+        """解析简单格式指标（如"上传量： 已通过"或"上传量： 还需要 97.60 GB"）"""
+        metric = {
+            'name': name.strip(),
+            'index': None,
+            'required': None,
+            'current': None,
+            'passed': None,
+        }
+
+        value = value.strip()
+
+        # 检查是否已通过
+        if re.search(r'已通过|通過|合格|達標|达标', value):
+            metric['passed'] = True
+            metric['current'] = '已通过'
+            return metric
+
+        # 检查是否还需要
+        need_match = re.search(r'还需要|還需要|仍需|需再?\s*([\d.]+)\s*([A-Za-z]+)?', value)
+        if need_match:
+            metric['passed'] = False
+            metric['current'] = f"还需 {need_match.group(1)} {need_match.group(2) or ''}".strip()
+            return metric
+
+        # 检查是否未通过
+        if re.search(r'未通过|未通過|不合格|未達標|未达标', value):
+            metric['passed'] = False
+            metric['current'] = '未通过'
+            return metric
+
+        return None
+
+    def __parse_metric_details(self, metric: Dict[str, Any], text: str) -> None:
+        """解析指标详情（要求、当前值、结果）"""
+        # 按分隔符拆分
+        chunks = re.split(r'[，,；;]+', text)
+
+        for chunk in chunks:
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+
+            # 解析要求值（非贪婪匹配，遇到下一个标签停止）
+            # 注意：不使用continue，允许同一chunk匹配多个字段
+            if not metric.get('required'):
+                req_match = re.search(
+                    r'(?:要求|需要|目標|目标|標準|标准)[：:]\s*(?P<value>.+?)(?=\s*(?:当前|當前|目前|結果|结果)|$)',
+                    chunk
+                )
+                if req_match:
+                    metric['required'] = req_match.group('value').strip()
+
+            # 解析当前值（非贪婪匹配）
+            if not metric.get('current'):
+                cur_match = re.search(
+                    r'(?:当前|當前|目前)[：:]\s*(?P<value>.+?)(?=\s*(?:結果|结果|要求)|$)',
+                    chunk
+                )
+                if cur_match:
+                    metric['current'] = cur_match.group('value').strip()
+
+            # 解析结果
+            if metric.get('passed') is None:
+                passed = self.__interpret_status(chunk)
+                if passed is not None:
+                    metric['passed'] = passed
+
+    def __interpret_status(self, text: str) -> Optional[bool]:
+        """解析状态文本，返回是否通过"""
+        if not text:
+            return None
+        # 清理文本
+        cleaned = re.sub(r'[！!。．\.]+$', '', text.strip())
+
+        # 使用更严格的匹配，避免子字符串误判
+        for keyword, passed in self._STATUS_KEYWORDS.items():
+            # 对于中文关键词，检查是否为独立词（前后无其他中文字符）
+            if re.search(r'[\u4e00-\u9fff]', keyword):
+                # 中文关键词：要求前后不是中文字符
+                pattern = rf'(?<![a-zA-Z\u4e00-\u9fff]){re.escape(keyword)}(?![a-zA-Z\u4e00-\u9fff])'
+            else:
+                # 英文关键词：使用单词边界
+                pattern = rf'\b{re.escape(keyword)}\b'
+
+            if re.search(pattern, cleaned, re.IGNORECASE):
+                return passed
         return None
 
     def __build_assessment_result(self, site_id: int, site_name: str,

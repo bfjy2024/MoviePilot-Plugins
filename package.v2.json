@@ -606,11 +606,12 @@
     "name": "站点考核状态",
     "description": "自动获取站点考核情况并在仪表板显示，支持考核临近时发送通知。",
     "labels": "站点",
-    "version": "1.0",
+    "version": "1.2",
     "icon": "statistic.png",
     "author": "yinghualao,bfjy",
     "level": 1,
     "history": {
+      "v1.2": "更新检查逻辑，修复v1.1版本未解决问题",
       "v1.1": "更新检查逻辑，修复部分站点无法获取考核状态的问题",
     	"v1.0": "初始版本"
     }
