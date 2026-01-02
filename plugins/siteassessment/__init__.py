@@ -32,7 +32,7 @@ class SiteAssessment(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/statistic.png"
     # 插件版本
-    plugin_version = "1.0"
+    plugin_version = "1.1"
     # 插件作者
     plugin_author = "yinghualao,bfjy"
     # 作者主页
@@ -541,7 +541,7 @@ class SiteAssessment(_PluginBase):
             return None
 
         # 匹配考核名称（支持多种格式）
-        name_match = re.search(r'名称[：:]\s*(.+?)(?:<br|<BR|\\n)', html, re.IGNORECASE)
+        name_match = re.search(r'(?:名称|考核名|离|距离新)\s*(.+?)(?:<br>|<BR>|\n|$)', html, re.IGNORECASE)
         if not name_match:
             logger.debug("未找到考核名称")
             return None
