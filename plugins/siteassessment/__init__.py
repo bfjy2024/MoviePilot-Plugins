@@ -33,7 +33,7 @@ class SiteAssessment(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/statistic.png"
     # 插件版本
-    plugin_version = "1.2"
+    plugin_version = "1.3"
     # 插件作者
     plugin_author = "yinghualao,bfjy"
     # 作者主页
@@ -573,11 +573,19 @@ class SiteAssessment(_PluginBase):
         return '\n'.join(lines), lines
 
     def __extract_time_from_title(self, html: str) -> Optional[str]:
-        """从HTML的title属性中提取结束时间"""
-        # 匹配 title="2026-01-18 22:36:27" 格式
+        """从HTML的title属性中提取结束时间（只在考核相关区块中搜索）"""
+        # 只在包含考核相关关键词附近搜索title属性
+        # 模式1：关键词在title之前
         match = re.search(
-            r'title=["\'](\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})["\']',
-            html
+            r'(?:考核|结束|還有|还有).{0,100}title=["\'](\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})["\']',
+            html, re.DOTALL
+        )
+        if match:
+            return match.group(1)
+        # 模式2：title在关键词之前
+        match = re.search(
+            r'title=["\'](\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})["\'].{0,100}(?:考核|结束|還有|还有)',
+            html, re.DOTALL
         )
         if match:
             return match.group(1)
@@ -751,7 +759,7 @@ class SiteAssessment(_PluginBase):
             return metric
 
         # 检查是否还需要
-        need_match = re.search(r'还需要|還需要|仍需|需再?\s*([\d.]+)\s*([A-Za-z]+)?', value)
+        need_match = re.search(r'(?:还需要|還需要|仍需|需再?)\s*([\d.]+)\s*([A-Za-z]+)?', value)
         if need_match:
             metric['passed'] = False
             metric['current'] = f"还需 {need_match.group(1)} {need_match.group(2) or ''}".strip()
@@ -761,6 +769,29 @@ class SiteAssessment(_PluginBase):
         if re.search(r'未通过|未通過|不合格|未達標|未达标', value):
             metric['passed'] = False
             metric['current'] = '未通过'
+            return metric
+
+        # 检查"当前值 / 要求值"格式（如"0.00 KB / 100.00 GB"或"548 / 10000"）
+        ratio_match = re.search(
+            r'([\d,.]+)\s*([A-Za-z]*)\s*/\s*([\d,.]+)\s*([A-Za-z]*)',
+            value
+        )
+        if ratio_match:
+            current_val = ratio_match.group(1)
+            current_unit = ratio_match.group(2) or ''
+            required_val = ratio_match.group(3)
+            required_unit = ratio_match.group(4) or ''
+
+            metric['current'] = f"{current_val} {current_unit}".strip()
+            metric['required'] = f"{required_val} {required_unit}".strip()
+
+            # 计算是否通过
+            try:
+                cur_num = float(current_val.replace(',', ''))
+                req_num = float(required_val.replace(',', ''))
+                metric['passed'] = cur_num >= req_num
+            except ValueError:
+                metric['passed'] = False
             return metric
 
         return None
