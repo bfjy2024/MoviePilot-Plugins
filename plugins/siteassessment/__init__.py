@@ -31,7 +31,7 @@ class SiteAssessment(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/statistic.png"
     # 插件版本
-    plugin_version = "2.0"
+    plugin_version = "2.1"
     # 插件作者
     plugin_author = "樱花佬,bfjy"
     # 作者主页
@@ -164,8 +164,11 @@ class SiteAssessment(_PluginBase):
         '%Y-%m-%d %H:%M',
         '%Y/%m/%d %H:%M:%S',
         '%Y/%m/%d %H:%M',
+        '%Y.%m.%d %H:%M:%S',
+        '%Y.%m.%d %H:%M',
         '%Y-%m-%d',
         '%Y/%m/%d',
+        '%Y.%m.%d',
     )
 
     # 状态关键词映射（简繁体）- 注意：否定词必须在肯定词之前检查
@@ -1129,36 +1132,21 @@ class SiteAssessment(_PluginBase):
 
     def __extract_time_from_title(self, html: str) -> Optional[str]:
         """从HTML的title属性中提取结束时间（只在考核相关区块中搜索）"""
-        # 模式1：关键词在title之前（放宽到200字符）
+        # 只在包含考核相关关键词附近搜索title属性
+        # 模式1：关键词在title之前
         match = re.search(
-            r'(?:考核|结束|結束|還有|还有).{0,200}title\s*=\s*["\'](\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})["\']',
-            html, re.DOTALL | re.IGNORECASE
+            r'(?:考核|结束|還有|还有).{0,100}title=["\'](\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})["\']',
+            html, re.DOTALL
         )
         if match:
-            logger.debug(f"从title属性提取结束时间（模式1）: {match.group(1)}")
             return match.group(1)
-
         # 模式2：title在关键词之前
         match = re.search(
-            r'title\s*=\s*["\'](\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})["\'].{0,200}(?:考核|结束|結束|還有|还有)',
-            html, re.DOTALL | re.IGNORECASE
+            r'title=["\'](\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})["\'].{0,100}(?:考核|结束|還有|还有)',
+            html, re.DOTALL
         )
         if match:
-            logger.debug(f"从title属性提取结束时间（模式2）: {match.group(1)}")
             return match.group(1)
-
-        # 模式3：直接搜索title属性中的日期时间（不限制关键词，更宽松）
-        # 用于捕获可能的考核结束时间
-        matches = re.findall(
-            r'title\s*=\s*["\'](\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})["\']',
-            html
-        )
-        if matches:
-            # 如果找到多个，取第一个（通常是考核结束时间）
-            logger.debug(f"从title属性提取结束时间（模式3-宽松）: {matches[0]}")
-            return matches[0]
-
-        logger.debug("未从title属性中提取到结束时间")
         return None
 
     def __parse_assessment_html(self, html: str) -> Optional[Dict[str, Any]]:
@@ -1194,19 +1182,21 @@ class SiteAssessment(_PluginBase):
 
         logger.debug(f"考核区块范围: 行 {name_index} ~ {end_index}（共 {len(lines_in_assessment)} 行）")
 
-        # 提取时间范围（多种来源）
-        start_time, end_time = self.__extract_time_range(lines_in_assessment)
-        if start_time and end_time:
-            assessment['start_time'] = start_time
-            assessment['end_time'] = end_time
-            logger.debug(f"解析时间: {start_time} ~ {end_time}")
-        elif title_time:
+        # 提取时间范围（优先级：title属性 > 文本时间范围 > 相对时间）
+        # title属性通常与倒计时直接关联，更准确
+        if title_time:
             assessment['end_time'] = title_time
             logger.debug(f"从title属性解析结束时间: {title_time}")
-        elif relative_time:
-            # 使用相对时间计算结束时间
-            assessment['end_time'] = relative_time
-            logger.debug(f"从相对时间解析结束时间: {relative_time}")
+        else:
+            start_time, end_time = self.__extract_time_range(lines_in_assessment)
+            if start_time and end_time:
+                assessment['start_time'] = start_time
+                assessment['end_time'] = end_time
+                logger.debug(f"解析时间: {start_time} ~ {end_time}")
+            elif relative_time:
+                # 使用相对时间计算结束时间
+                assessment['end_time'] = relative_time
+                logger.debug(f"从相对时间解析结束时间: {relative_time}")
 
         # 只使用文本解析提取指标
         text_metrics = self.__extract_metrics(lines_in_assessment)
