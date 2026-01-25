@@ -1,4 +1,4 @@
-# filepath: /plugins/ptsmagicfram/__init__.py
+# filepath: /plugins/ptsfarm/__init__.py
 import re
 import time
 import base64
@@ -16,7 +16,7 @@ from app.scheduler import Scheduler
 from app.schemas import NotificationType
 from app.db.site_oper import SiteOper
 
-class PtsmagicFram(_PluginBase):
+class PtsFarm(_PluginBase):
     # 插件名称
     plugin_name = "PTS农场"
     # 插件描述
@@ -314,7 +314,7 @@ class PtsmagicFram(_PluginBase):
         
         if self._enabled and self._cron:
             services.append({
-                "id": "ptsmagicfram",
+                "id": "ptsfarm",
                 "name": "PTS魔法农场 - 定时任务",
                 "trigger": CronTrigger.from_crontab(self._cron),
                 "func": self._farm_task,
