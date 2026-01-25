@@ -626,7 +626,7 @@
     "version": "1.0",
     "icon": "ptsfarm.png",
     "author": "bfjy",
-    "level": 3,
+    "level": 1,
     "history": {
       "v1.0": "初始版本,参考KoWming佬的脚本改编"
     }
