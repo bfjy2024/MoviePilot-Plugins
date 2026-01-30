@@ -11,7 +11,7 @@ class WorkWechatMsg(_PluginBase):
     # 插件名称
     plugin_name = "企微机器人消息通知"
     # 插件描述
-    plugin_desc = "支持使用企业微信群聊机器人发送消息通知。"
+    plugin_desc = "支持使用企业微信群聊机器人发送消息通知，此插件在叮叮当大佬项目基础上修改而来。"
     # 插件图标
     plugin_icon = "Wecom_A.png"
     # 插件版本
