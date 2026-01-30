@@ -7,7 +7,7 @@ from app.schemas.types import EventType, NotificationType
 from app.utils.http import RequestUtils
 
 
-class WorkWechatMsg(_PluginBase):
+class VWechatMsg(_PluginBase):
     # 插件名称
     plugin_name = "企微机器人消息推送"
     # 插件描述
@@ -21,7 +21,7 @@ class WorkWechatMsg(_PluginBase):
     # 作者主页
     author_url = "https://bfjy2024.github.com/bfjy"
     # 插件配置项ID前缀
-    plugin_config_prefix = "workwechatmsg_"
+    plugin_config_prefix = "vwechatmsg_"
     # 加载顺序
     plugin_order = 28
     # 可使用的用户级别
