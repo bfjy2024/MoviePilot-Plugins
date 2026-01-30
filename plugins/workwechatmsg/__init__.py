@@ -17,9 +17,9 @@ class WorkWechatMsg(_PluginBase):
     # 插件版本
     plugin_version = "1.0"
     # 插件作者
-    plugin_author = "叮叮当"
+    plugin_author = "bfjy"
     # 作者主页
-    author_url = "https://github.com/cikezhu"
+    author_url = "https://bfjy2024.github.com/bfjy"
     # 插件配置项ID前缀
     plugin_config_prefix = "workwechatmsg_"
     # 加载顺序
@@ -31,12 +31,14 @@ class WorkWechatMsg(_PluginBase):
     _enabled = False
     _webhookurl = None
     _msgtypes = []
+    _url=None
 
     def init_plugin(self, config: dict = None):
         if config:
             self._enabled = config.get("enabled")
             self._webhookurl = config.get("webhookurl")
             self._msgtypes = config.get("msgtypes") or []
+            self._url=config.get{"url"}
 
     def get_state(self) -> bool:
         return self._enabled and (True if self._webhookurl else False)
@@ -115,6 +117,27 @@ class WorkWechatMsg(_PluginBase):
                                 },
                                 'content': [
                                     {
+                                        'component': 'VTextField',
+                                        'props': {
+                                            'model': 'url',
+                                            'label': '自定义点击消息跳转链接',
+                                            'placeholder': 'https://mp.slwu.site',
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        'component': 'VRow',
+                        'content': [
+                            {
+                                'component': 'VCol',
+                                'props': {
+                                    'cols': 12
+                                },
+                                'content': [
+                                    {
                                         'component': 'VSelect',
                                         'props': {
                                             'multiple': True,
@@ -133,6 +156,7 @@ class WorkWechatMsg(_PluginBase):
         ], {
             "enabled": False,
             'webhookurl': '',
+            'url':'',
             'msgtypes': []
         }
 
@@ -163,7 +187,8 @@ class WorkWechatMsg(_PluginBase):
         text = msg_body.get("text")
         # 图像
         image = msg_body.get("image")
-
+        # 链接
+        url =self._url
         if not title and not text:
             logger.warn("标题和内容不能同时为空")
             return
@@ -189,7 +214,7 @@ class WorkWechatMsg(_PluginBase):
                             {
                                 "title": title,
                                 "description": text,
-                                "url": "moviepilot",
+                                "url": url,
                                 "picurl": image
                             }
                         ]

@@ -556,11 +556,11 @@
   },
   "WorkWechatMsg": {
     "name": "企微机器人消息推送",
-    "description": "支持使用企业微信群聊机器人发送消息通知。",
+    "description": "支持使用企业微信群聊机器人发送消息通知，此插件在叮叮当大佬项目基础上修改而来。",
     "labels": "消息通知",
     "version": "1.0",
     "icon": "Wecom_A.png",
-    "author": "叮叮当",
+    "author": "bfjy",
     "level": 1,
     "v2": true
   },
