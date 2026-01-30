@@ -7,7 +7,7 @@ from app.schemas.types import EventType, NotificationType
 from app.utils.http import RequestUtils
 
 
-class VWechatMsg(_PluginBase):
+class qyWechatMsg(_PluginBase):
     # 插件名称
     plugin_name = "企微机器人消息推送"
     # 插件描述
@@ -21,7 +21,7 @@ class VWechatMsg(_PluginBase):
     # 作者主页
     author_url = "https://bfjy2024.github.com/bfjy"
     # 插件配置项ID前缀
-    plugin_config_prefix = "vwechatmsg_"
+    plugin_config_prefix = "qywechatmsg_"
     # 加载顺序
     plugin_order = 28
     # 可使用的用户级别
@@ -38,7 +38,7 @@ class VWechatMsg(_PluginBase):
             self._enabled = config.get("enabled")
             self._webhookurl = config.get("webhookurl")
             self._msgtypes = config.get("msgtypes") or []
-            self._url=config.get{"url"}
+            self._url=config.get("url")
 
     def get_state(self) -> bool:
         return self._enabled and (True if self._webhookurl else False)

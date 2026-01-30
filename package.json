@@ -554,7 +554,7 @@
       "v2.5": "增加Github加速服务器设置项"
     }
   },
-  "vwechatMsg": {
+  "qywechatMsg": {
     "name": "企微机器人消息推送",
     "description": "支持使用企业微信群聊机器人发送消息推送。",
     "labels": "消息通知",
