@@ -618,17 +618,5 @@
       "v1.1": "更新检查逻辑，修复部分站点无法获取考核状态的问题",
     	"v1.0": "初始版本"
     }
-  },
-  "ptsfarm": {
-    "name": "PTS农场",
-    "description": "支持一键收获、种植、养殖，定时自动化任务。",
-    "labels": "站点",
-    "version": "1.x",
-    "icon": "ptsfarm.png",
-    "author": "bfjy",
-    "level": 1,
-    "history": {
-      "v1.0": "初始版本,参考KoWming佬的脚本改编"
-    }
   }
 }
