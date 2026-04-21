@@ -1074,4 +1074,22 @@
       "v1.0": "初始版本"
     }
   } 
+  "PTAutoTask": {
+    "name": "PT自动任务",
+    "description": "用来执行一些站点的定期任务，包括但不限于签到、喊话、领取任务等；本版本在liuyunfz大佬插件基础上增加躺平站点BUG/VIP任务领取功能",
+    "labels": "每日任务,喊话",
+    "version": "1.1.2",
+    "icon": "https://raw.githubusercontent.com/liuyunfz/MoviePilot-Plugins/main/icons/ptautotask.png",
+    "author": "liuyunfz",
+    "level": 1,
+    "v2": true,
+    "history": {
+      "v1.1.2": "增加躺平站点BUG/VIP任务领取功能",
+      "v1.1.1": "修复0任务数站点导致的报错问题",
+      "v1.1.0": "新增青蛙站点商店福利任务",
+      "v1.0.2": "修复偶尔日志出现重复记录的问题",
+      "v1.0.1": "修复仅运行一次后站点配置丢失的问题",
+      "v1.0.0": "首个版本，支持车站等七个站点"
+    }
+  }
 }
