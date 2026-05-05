@@ -1091,5 +1091,17 @@
       "v1.0.1": "修复仅运行一次后站点配置丢失的问题",
       "v1.0.0": "首个版本，支持车站等七个站点"
     }
+  },
+    "novafram": {
+    "name": "星云农场",
+    "description": "支持NovaHD站点农场一键收获、种植、养殖，定时自动化任务。",
+    "labels": "农场,自动化",
+    "version": "1.0.0",
+    "icon": "https://raw.githubusercontent.com/KoWming/MoviePilot-Plugins/main/icons/Vicomofarm.png",
+    "author": "bfjy",
+    "level": 1,
+    "history": {
+      "v1.0.0": "MoviePilot 星云农场插件"
+    }
   }
 }
