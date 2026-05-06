@@ -23,7 +23,7 @@ urllib3.disable_warnings(InsecureRequestWarning)
 class PlayletLottery(_PluginBase):
     plugin_name = "PlayLet自动抽奖助手"
     plugin_desc = "按每日目标次数自动拆解并执行 PlayLet 抽奖。"
-    plugin_icon = "Moviepilot_A.png"
+    plugin_icon = "playletico.png"
     plugin_version = "1.0.0"
     plugin_author = "jiangbkvir,bfjy"
     author_url = "https://github.com/jiangbkvir/MoviePilot-Plugins"
@@ -39,7 +39,7 @@ class PlayletLottery(_PluginBase):
     _enabled = False
     _cookie = ""
     _target_count = 2000
-    _cron = "10 2 * * *"
+    _cron = "10 12 * * *"
     _notify = True
     _run_once = False
     _lock = threading.Lock()
