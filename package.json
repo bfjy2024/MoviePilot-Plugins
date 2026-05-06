@@ -1097,7 +1097,7 @@
     "description": "按每日目标次数自动拆解并执行 PlayLet 抽奖。",
     "labels": "抽奖，自动化",
     "version": "1.0.0",
-    "icon": "playletico.png",
+    "icon": "Neko_A.png",
     "author": "jiangbkvir,bfjy",
     "level": 1,
     "history": {
