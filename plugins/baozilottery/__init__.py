@@ -25,8 +25,8 @@ class BaoziLottery(_PluginBase):
     plugin_desc = "按每日目标次数自动拆解并执行 Baozi 抽奖。"
     plugin_icon = "Moviepilot_A.png"
     plugin_version = "1.0.0"
-    plugin_author = "jiangbkvir,bfjy"
-    author_url = "https://github.com/jiangbkvir/MoviePilot-Plugins"
+    plugin_author = "bfjy"
+    author_url = "https://github.com/bfjy2024/MoviePilot-Plugins"
     plugin_config_prefix = "baozilottery_"
     plugin_order = 30
     auth_level = 1
