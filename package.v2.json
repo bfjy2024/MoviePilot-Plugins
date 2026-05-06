@@ -622,7 +622,7 @@
     "PlayletLottery": {
     "name": "PlayLet自动抽奖助手",
     "description": "按每日目标次数自动拆解并执行 PlayLet 抽奖。",
-    "labels": "壁纸,本地化",
+    "labels": "抽奖，自动化",
     "version": "1.0.0",
     "icon": "Moviepilot_A.png",
     "author": "jiangbkvir,bfjy",

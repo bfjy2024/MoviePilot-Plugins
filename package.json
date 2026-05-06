@@ -1091,5 +1091,17 @@
       "v1.0.1": "修复仅运行一次后站点配置丢失的问题",
       "v1.0.0": "首个版本，支持车站等七个站点"
     }
+  },
+    "PlayletLottery": {
+    "name": "PlayLet自动抽奖助手",
+    "description": "按每日目标次数自动拆解并执行 PlayLet 抽奖。",
+    "labels": "抽奖，自动化",
+    "version": "1.0.0",
+    "icon": "Moviepilot_A.png",
+    "author": "jiangbkvir,bfjy",
+    "level": 1,
+    "history": {
+      "v1.0.0": "初始版本"
+    }
   }
 }
