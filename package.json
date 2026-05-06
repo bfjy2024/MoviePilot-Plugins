@@ -1104,7 +1104,7 @@
       "v1.0.0": "初始版本"
     }
   },
-    "baozilottery": {
+    "BaoziLottery": {
     "name": "Baozi自动抽奖助手",
     "description": "按每日目标次数自动拆解并执行 Baozi 抽奖。",
     "labels": "抽奖，自动化",
