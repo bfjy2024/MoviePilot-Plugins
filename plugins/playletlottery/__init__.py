@@ -23,7 +23,7 @@ urllib3.disable_warnings(InsecureRequestWarning)
 class PlayletLottery(_PluginBase):
     plugin_name = "PlayLet自动抽奖助手"
     plugin_desc = "按每日目标次数自动拆解并执行 PlayLet 抽奖。"
-    plugin_icon = "Neko_A.png"
+    plugin_icon = "playletico.png"
     plugin_version = "1.0.0"
     plugin_author = "jiangbkvir,bfjy"
     author_url = "https://github.com/jiangbkvir/MoviePilot-Plugins"
