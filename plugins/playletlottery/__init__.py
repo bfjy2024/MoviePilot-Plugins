@@ -44,6 +44,7 @@ class PlayletLottery(_PluginBase):
     _run_once = False
     _lock = threading.Lock()
 
+    #插件初始化方法：程序启动插件的时候，会调用这个，加载你的配置，启动定时任务。
     def init_plugin(self, config: dict = None):
         config = config or {}
         site_cookie = self.__get_site_cookie()
@@ -102,6 +103,7 @@ class PlayletLottery(_PluginBase):
             }
         ]
 
+    #生成插件配置页的表单
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         site_cookie = self.__get_site_cookie()
         cookie_value = self._cookie or site_cookie or ""
@@ -234,7 +236,8 @@ class PlayletLottery(_PluginBase):
             "notify": self._notify,
             "run_once": False
         }
-
+    
+    #生成插件的数据页面
     def get_page(self) -> List[dict]:
         records = self.__get_records()
         for record in records:
@@ -388,6 +391,7 @@ class PlayletLottery(_PluginBase):
             ]
         }
 
+    #执行抽奖任务的核心方法，包含了完整的抽奖流程、错误处理、结果统计和记录保存。
     def run_lottery_task(self) -> Dict[str, Any]:
         if not self._lock.acquire(blocking=False):
             return {"status": "running", "message": "已有抽奖任务正在执行"}
@@ -444,7 +448,8 @@ class PlayletLottery(_PluginBase):
             return result
         finally:
             self._lock.release()
-
+    
+    #执行抽奖的核心方法，负责发送抽奖请求、处理响应、识别错误类型，并返回结构化的结果供上层逻辑使用。
     def __post_spin(self, count: int, cookie: str) -> Tuple[Optional[dict], Optional[str], str]:
         headers = {
             "accept": "*/*",
@@ -489,7 +494,8 @@ class PlayletLottery(_PluginBase):
             return data, "request_failed", message
 
         return data, None, ""
-
+   
+   #读取抽奖页面并解析关键信息的方法，包含了网络请求、错误处理、HTML 解析和数据提取等逻辑，以供数据页面展示使用。
     def __fetch_lottery_info(self) -> Dict[str, Any]:
         info = {
             "current_magic": "-",
@@ -547,18 +553,23 @@ class PlayletLottery(_PluginBase):
             info["today_drawn"] = drawn
         return info
 
+    #将 Cookie 字符串转换为字典的方法，支持从配置或站点管理中读取的 Cookie 格式，并提取出键值对供请求使用。
     @staticmethod
     def __cookie_to_dict(cookie: str) -> Dict[str, str]:
         cookies = {}
         for item in (cookie or "").split(";"):
             if "=" not in item:
                 continue
-            key, value = item.split("=", 1)
+
+            # 只分割第一个等号，避免值中包含等号时被错误切分
+            key, value = item.split("=", 1) 
             key = key.strip()
+            # 仅当键不为空时才添加到字典中，避免出现空键导致的请求错误
             if key:
                 cookies[key] = value.strip()
         return cookies
 
+    #合并抽奖响应数据到统计结果的方法，负责解析抽奖接口的响应内容，提取奖品信息、中奖状态，并更新任务的统计数据以供后续记录保存和通知使用。
     def __merge_response(self, task: Dict[str, Any], data: dict, request_count: int):
         if request_count == 10:
             task["ten_requests"] += 1
@@ -590,6 +601,7 @@ class PlayletLottery(_PluginBase):
                     display = f"{prize_name} x {self.__format_number(value)}"
                 task["other_rewards"][display] += 1
 
+    #完成抽奖任务后的处理方法，负责对抽奖结果进行最终的统计整理，生成用户友好的文本描述，并保存到历史记录中，同时根据配置决定是否发送通知。
     def __finish_task(self, result: Dict[str, Any]):
         result["date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         result["status_text"] = self.__status_text(result.get("status"))
@@ -602,6 +614,7 @@ class PlayletLottery(_PluginBase):
         if self._notify:
             self.__send_notification(result)
 
+    #发送抽奖结果通知的方法，负责将抽奖任务的结果以结构化的文本形式发送到 MoviePilot 的通知系统中，以便用户及时了解抽奖情况和结果。
     def __send_notification(self, result: Dict[str, Any]):
         title = "【PlayLet自动抽奖助手】"
         text = (
@@ -612,7 +625,8 @@ class PlayletLottery(_PluginBase):
             f"说明：{result.get('message')}"
         )
         self.post_message(mtype=NotificationType.Plugin, title=title, text=text)
-
+    
+    #保存抽奖记录的方法，负责将每次抽奖任务的结果保存到插件的数据存储中，保持最近的历史记录以供数据页面展示和统计使用。
     def __save_record(self, record: Dict[str, Any]):
         stored = self.__get_records()
         serializable = record.copy()
@@ -622,10 +636,12 @@ class PlayletLottery(_PluginBase):
         stored.insert(0, serializable)
         self.save_data("records", stored[:self.MAX_HISTORY])
 
+    #获取抽奖历史记录的方法，负责从插件的数据存储中读取之前保存的抽奖记录，并返回结构化的列表供数据页面展示使用。
     def __get_records(self) -> List[Dict[str, Any]]:
         records = self.get_data("records") or []
         return records if isinstance(records, list) else []
 
+    #构建最近两天奖品汇总的方法，负责统计最近两天的抽奖记录中的奖品信息，并生成适合数据页面展示的结构化列表，以便用户了解近期的抽奖情况和奖品分布。
     def __build_recent_prize_summary(self, records: List[Dict[str, Any]]) -> Tuple[List[dict], List[dict]]:
         today = datetime.now().strftime("%Y-%m-%d")
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -646,6 +662,7 @@ class PlayletLottery(_PluginBase):
             self.__summary_to_items(buckets[yesterday])
         )
 
+    #将奖品统计 Counter 转换为展示列表的方法，负责将奖品名称和数量的 Counter 结构转换为适合数据页面展示的列表格式，并按照数量进行排序，以便用户直观地看到奖品的分布情况。
     @staticmethod
     def __summary_to_items(counter: Counter) -> List[dict]:
         if not counter:
