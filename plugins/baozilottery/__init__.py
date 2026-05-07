@@ -53,6 +53,10 @@ class BaoziLottery(_PluginBase):
         self._cron = (config.get("cron") or "10 2 * * *").strip()
         self._notify = bool(config.get("notify", True))
         self._run_once = bool(config.get("run_once", False))
+        logger.info(
+            f"Baozi 自动抽奖助手初始化完成：enabled={self._enabled}, "
+            f"target_count={self._target_count}, cron={self._cron}, notify={self._notify}"
+        )
         if self._run_once:
             self._run_once = False
             self.update_config({
@@ -63,6 +67,7 @@ class BaoziLottery(_PluginBase):
                 "notify": self._notify,
                 "run_once": False
             })
+            logger.info("收到配置页立即运行请求，后台启动抽奖任务")
             threading.Thread(target=self.run_lottery_task, daemon=True).start()
 
     def get_state(self) -> bool:
@@ -239,6 +244,7 @@ class BaoziLottery(_PluginBase):
         records = self.__get_records()
         for record in records:
             record["status_text"] = record.get("status_text") or self.__status_text(record.get("status"))
+        logger.info("详情页加载 Baozi 抽奖信息，开始请求抽奖页面")
         lottery_info = self.__fetch_lottery_info()
         today_summary, yesterday_summary = self.__build_recent_prize_summary(records)
         return [
@@ -366,6 +372,7 @@ class BaoziLottery(_PluginBase):
         pass
 
     def run_once_api(self) -> Dict[str, Any]:
+        logger.info("收到 API 立即执行请求，开始执行 Baozi 抽奖任务")
         result = self.run_lottery_task()
         return {"success": result.get("status") not in {"failed", "auth_failed"}, "message": result.get("message"), "data": result}
 
@@ -390,10 +397,12 @@ class BaoziLottery(_PluginBase):
 
     def run_lottery_task(self) -> Dict[str, Any]:
         if not self._lock.acquire(blocking=False):
+            logger.warn("抽奖任务启动失败：已有任务正在执行")
             return {"status": "running", "message": "已有抽奖任务正在执行"}
         try:
             cookie = (self._cookie or self.__get_site_cookie() or "").strip()
             if not cookie or "c_secure_pass=" not in cookie:
+                logger.warn("抽奖任务终止：缺少包含 c_secure_pass 的 Baozi Cookie")
                 result = self.__new_result(status="auth_failed", message="缺少包含 c_secure_pass 的 Baozi Cookie")
                 self.__finish_task(result)
                 return result
@@ -401,6 +410,7 @@ class BaoziLottery(_PluginBase):
             target_count = self.__safe_int(self._target_count, 2000, min_value=1)
             ten_plan = target_count // 10
             one_plan = target_count % 10
+            logger.info(f"抽奖任务开始：目标={target_count}，10连抽计划={ten_plan}，单抽计划={one_plan}")
             result = self.__new_result(target_count=target_count, planned_ten=ten_plan, planned_one=one_plan)
             consecutive_auth_errors = 0
             consecutive_request_errors = 0
@@ -408,6 +418,7 @@ class BaoziLottery(_PluginBase):
             for count in ([10] * ten_plan) + ([1] * one_plan):
                 response_data, error_kind, message = self.__post_spin(count=count, cookie=cookie)
                 if error_kind == "quota_exhausted":
+                    logger.warn(f"抽奖额度不足，任务停止：{message}")
                     result["status"] = "quota_exhausted"
                     result["message"] = message
                     break
@@ -415,6 +426,7 @@ class BaoziLottery(_PluginBase):
                     consecutive_auth_errors += 1
                     consecutive_request_errors = 0
                     result["message"] = message
+                    logger.warn(f"抽奖请求出现 Cookie/权限类错误：{message}")
                     if consecutive_auth_errors >= 3:
                         result["status"] = "auth_failed"
                         result["message"] = "连续 3 次 Cookie/权限类失败，任务已熔断"
@@ -425,6 +437,7 @@ class BaoziLottery(_PluginBase):
                     consecutive_request_errors += 1
                     consecutive_auth_errors = 0
                     result["message"] = message
+                    logger.warn(f"抽奖请求失败：{message}，当前连续失败次数={consecutive_request_errors}")
                     if consecutive_request_errors >= 3:
                         result["status"] = "failed"
                         result["message"] = "连续 3 次请求失败，任务已熔断"
@@ -445,6 +458,11 @@ class BaoziLottery(_PluginBase):
                 result["status"] = "completed"
                 result["message"] = "抽奖任务完成"
             self.__finish_task(result)
+            logger.info(
+                f"抽奖任务结束：状态={result.get('status_text')}，目标={result.get('target_count')}，"
+                f"完成={result.get('completed_count')}，10连抽={result.get('ten_requests')}，"
+                f"单抽={result.get('one_requests')}"
+            )
             return result
         finally:
             self._lock.release()
@@ -464,6 +482,7 @@ class BaoziLottery(_PluginBase):
             "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0",
             "x-requested-with": "XMLHttpRequest"
         }
+        logger.info(f"准备请求 Baozi 抽奖接口：count={count}，url={self.SPIN_URL}")
         try:
             response = requests.post(
                 self.SPIN_URL,
@@ -477,23 +496,35 @@ class BaoziLottery(_PluginBase):
             return None, "request_failed", f"请求失败：{err}"
 
         text = response.text or ""
+        logger.info(
+            f"Baozi 抽奖接口 HTTP 响应：count={count}，status_code={response.status_code}，"
+            f"content_type={response.headers.get('content-type')}"
+        )
         if response.status_code in {401, 403}:
+            logger.warn(f"Baozi 抽奖接口权限错误：count={count}，HTTP {response.status_code}，响应={text[:500]}")
             return None, "auth_failed", f"接口返回权限错误：HTTP {response.status_code}"
         try:
             data = response.json()
         except ValueError:
+            logger.warn(
+                f"Baozi 抽奖接口返回非 JSON：count={count}，HTTP={response.status_code}，"
+                f"响应预览={text[:500]}"
+            )
             if self.__is_auth_message(text):
                 return None, "auth_failed", "接口返回 Cookie/权限类错误"
             return None, "request_failed", "接口返回非 JSON 响应"
 
+        logger.info(f"Baozi 抽奖接口 JSON 响应：count={count}，data={str(data)[:500]}")
         if data.get("ret") != 0:
             message = str(data.get("msg") or "接口返回失败")
+            logger.warn(f"Baozi 抽奖接口返回失败：count={count}，message={message}")
             if "今日剩余抽奖次数不足" in message:
                 return data, "quota_exhausted", message
             if self.__is_auth_message(message):
                 return data, "auth_failed", message
             return data, "request_failed", message
 
+        logger.info(f"Baozi 抽奖接口请求成功：count={count}，返回 prize_text 长度={len(str(data.get('data', {}).get('prize_text', '')))}")
         # 解析 Baozi 的 prize_text 为 results 数组
         results = self.__parse_prize_text(data.get("data", {}).get("prize_text", ""))
         simulated_data = {"success": True, "results": results}
@@ -560,8 +591,10 @@ class BaoziLottery(_PluginBase):
         cookie = (self._cookie or self.__get_site_cookie() or "").strip()
         if not cookie or "c_secure_pass=" not in cookie:
             info["message"] = "缺少 Baozi Cookie，无法读取抽奖信息"
+            logger.warn("读取 Baozi 抽奖信息失败：缺少包含 c_secure_pass 的 Cookie")
             return info
 
+        logger.info(f"准备请求 Baozi 抽奖页面：url={self.REFERER}")
         headers = {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "accept-language": "zh-CN,zh;q=0.9",
@@ -580,19 +613,26 @@ class BaoziLottery(_PluginBase):
             )
         except requests.RequestException as err:
             info["message"] = f"读取抽奖页面失败：{err}"
+            logger.error(f"读取 Baozi 抽奖页面请求异常：错误={err}")
             return info
 
+        logger.info(
+            f"Baozi 抽奖页面 HTTP 响应：status_code={response.status_code}，content_type={response.headers.get('content-type')}"
+        )
         if response.status_code in {401, 403}:
             info["message"] = f"读取抽奖页面权限错误：HTTP {response.status_code}"
+            logger.warn(f"读取 Baozi 抽奖页面权限错误：HTTP {response.status_code}")
             return info
         if response.status_code != 200:
             info["message"] = f"读取抽奖页面失败：HTTP {response.status_code}"
+            logger.warn(f"读取 Baozi 抽奖页面失败：HTTP {response.status_code}，响应预览={response.text[:500]}")
             return info
 
         plain_text = self.__html_to_text(response.text or "")
         logger.debug(f"Baozi lottery page plain_text: {plain_text[:500]}")  # 记录前500字符用于调试
         if any(word in plain_text for word in ["Cookie失效", "非法访问", "请先登录", "未登录"]):
             info["message"] = "抽奖页面返回登录/权限提示，请检查 Cookie"
+            logger.warn(f"读取 Baozi 抽奖页面返回登录/权限提示，页面文本预览={plain_text[:500]}")
             return info
 
         info["current_magic"] = self.__extract_number_after_label(plain_text, "当前用户拥有魔力")
@@ -605,6 +645,7 @@ class BaoziLottery(_PluginBase):
             info["today_drawn"] = f"{left} / {right}"
         else:
             info["today_drawn"] = drawn
+        logger.info(f"Baozi 抽奖页面解析结果：current_magic={info['current_magic']}，cost_per_spin={info['cost_per_spin']}，today_drawn={info['today_drawn']}，free_count={info['free_count']}")
         return info
 
     @staticmethod
@@ -627,13 +668,21 @@ class BaoziLottery(_PluginBase):
             task["one_requests"] += 1
         results = data.get("results") or []
         task["completed_count"] += len(results)
+        logger.info(
+            f"合并抽奖结果：本次请求 count={request_count}，返回结果数量={len(results)}，"
+            f"累计完成={task['completed_count']}"
+        )
 
-        for item in results:
+        for index, item in enumerate(results, 1):
             prize = item.get("prize") or {}
             prize_name = str(prize.get("name") or "未知奖品")
             task["prize_summary"][prize_name] += 1
             result = item.get("result") or {}
+            logger.info(
+                f"抽奖结果明细：本次第 {index} 条，奖品={prize_name}，原始结果={result}"
+            )
             if result.get("status") != "awarded":
+                logger.info(f"抽奖结果未发放奖励：奖品={prize_name}，status={result.get('status')}")
                 continue
             task["winning_summary"][prize_name] += 1
 
@@ -643,13 +692,17 @@ class BaoziLottery(_PluginBase):
             marker = f"{reward_type} {unit} {prize_name}".lower()
             if reward_type == "bonus":
                 task["bonus"] += value
+                logger.info(f"累计魔力奖励：本次={value}，累计={task['bonus']}")
             elif any(word in marker for word in ["upload", "traffic", "上传", "流量", "gb", "mb", "tb"]):
-                task["traffic"] += self.__traffic_to_gb(value, unit, prize_name)
+                traffic_value = self.__traffic_to_gb(value, unit, prize_name)
+                task["traffic"] += traffic_value
+                logger.info(f"累计流量奖励：本次={traffic_value} GB，累计={task['traffic']} GB")
             else:
                 display = prize_name
                 if value:
                     display = f"{prize_name} x {self.__format_number(value)}"
                 task["other_rewards"][display] += 1
+                logger.info(f"累计其他奖励：{display}，累计次数={task['other_rewards'][display]}")
 
     def __finish_task(self, result: Dict[str, Any]):
         result["date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -659,9 +712,12 @@ class BaoziLottery(_PluginBase):
         result["traffic_text"] = f"{result['traffic']} GB"
         result["other_text"] = self.__counter_to_text(result.get("other_rewards") or {})
         result["prize_text"] = self.__counter_to_text(result.get("prize_summary") or {})
+        logger.info(f"抽奖任务最终结果：status={result.get('status_text')}，completed={result.get('completed_count')}，bonus={result.get('bonus')}，traffic={result.get('traffic')} GB")
         self.__save_record(result)
         if self._notify:
             self.__send_notification(result)
+        else:
+            logger.info("抽奖任务通知未发送：发送通知开关未开启")
 
     def __send_notification(self, result: Dict[str, Any]):
         title = "【Baozi自动抽奖助手】"
@@ -671,6 +727,7 @@ class BaoziLottery(_PluginBase):
             f"状态：{result.get('status_text') or self.__status_text(result.get('status'))}\n"
             f"说明：{result.get('message')}"
         )
+        logger.info(f"准备发送抽奖任务通知：title={title}，text={text}")
         self.post_message(mtype=NotificationType.Plugin, title=title, text=text)
 
     def __save_record(self, record: Dict[str, Any]):
@@ -681,6 +738,7 @@ class BaoziLottery(_PluginBase):
         serializable["other_rewards"] = dict(serializable.get("other_rewards") or {})
         stored.insert(0, serializable)
         self.save_data("records", stored[:self.MAX_HISTORY])
+        logger.info(f"抽奖历史记录已保存：当前保存条数={min(len(stored), self.MAX_HISTORY)}")
 
     def __get_records(self) -> List[Dict[str, Any]]:
         records = self.get_data("records") or []
@@ -844,7 +902,9 @@ class BaoziLottery(_PluginBase):
 
     @staticmethod
     def __sleep_between_requests():
-        time.sleep(random.randint(2, 5))
+        delay = random.randint(2, 5)
+        logger.info(f"抽奖请求间隔等待：{delay} 秒")
+        time.sleep(delay)
 
     @staticmethod
     def __safe_int(value: Any, default: int, min_value: Optional[int] = None) -> int:
