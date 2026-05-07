@@ -194,7 +194,7 @@ class BaoziLottery(_PluginBase):
                                         "component": "VTextField",
                                         "props": {
                                             "model": "target_count",
-                                            "label": "每日目标总次数",
+                                            "label": "每日目标总次数(10的整数倍)",
                                             "type": "number",
                                             "min": 1,
                                             "hint": "每天多少抽"
