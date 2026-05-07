@@ -399,10 +399,6 @@ class BaoziLottery(_PluginBase):
 
         # 获取命令文本和参数
         event_data = event.event_data or {}
-        count = None
-
-        if isinstance(event_data.get("count"), (int, float, str)):
-            count = self.__safe_int(event_data.get("count"), None, min_value=1)
 
         def collect_strings(data):
             strings = []
@@ -419,9 +415,29 @@ class BaoziLottery(_PluginBase):
         all_text = " ".join(s for s in collect_strings(event_data) if s and isinstance(s, str)).strip()
         cmd_text = all_text
 
-        if count is None:
-            count_match = re.search(r"(?<!\d)(\d+)(?!\d)", all_text)
-            count = self.__safe_int(count_match.group(1) if count_match else "1", 1, min_value=1)
+        # 尝试只从 /bzcj 命令文本中提取次数，避免抓到其他无关数字
+        command_subtext = all_text
+        cmd_match = re.search(r"(/bzcj\b.*)$", all_text, flags=re.IGNORECASE)
+        if cmd_match:
+            command_subtext = cmd_match.group(1)
+            cmd_text = command_subtext
+
+        count_match = re.search(r"(?<!\d)(\d+)(?!\d)", command_subtext)
+        if count_match:
+            count = self.__safe_int(count_match.group(1), 1, min_value=1)
+        else:
+            count = None
+            if isinstance(event_data.get("count"), (int, float, str)):
+                count = self.__safe_int(event_data.get("count"), None, min_value=1)
+            if count is None:
+                count = 1
+
+        if isinstance(event_data.get("count"), (int, float, str)) and count_match:
+            raw_count = self.__safe_int(event_data.get("count"), None, min_value=1)
+            if raw_count is not None and raw_count != count:
+                logger.debug(
+                    f"Baozi command count mismatch: text_count={count}, event_data.count={raw_count}, event_data={event_data}"
+                )
 
         if count <= 0:
             count = 1
