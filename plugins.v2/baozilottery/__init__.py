@@ -415,12 +415,33 @@ class BaoziLottery(_PluginBase):
         all_text = " ".join(s for s in collect_strings(event_data) if s and isinstance(s, str)).strip()
         cmd_text = all_text
 
+        def extract_count_from_suffix(suffix: str) -> Optional[int]:
+            if not suffix:
+                return None
+            for token in suffix.split():
+                if re.fullmatch(r"\d+", token):
+                    return self.__safe_int(token, None, min_value=1)
+            # 兼容包含纯数字的其它分隔形式
+            match = re.search(r"(?<!\d)(\d+)(?!\d)", suffix)
+            if match:
+                return self.__safe_int(match.group(1), None, min_value=1)
+            return None
+
         # 优先从 /bzcj 命令后直接提取数字参数，避免捕获后面其它字段中的无关数字
         count = None
-        cmd_match = re.search(r"/bzcj\b(?:\s*[:=]?\s*)(\d+)", all_text, flags=re.IGNORECASE)
+        cmd_match = re.search(r"/bzcj\b(?:\s*[:=]?\s*)(.*)$", all_text, flags=re.IGNORECASE)
         if cmd_match:
-            count = self.__safe_int(cmd_match.group(1), 1, min_value=1)
-            cmd_text = cmd_match.group(0)
+            suffix = cmd_match.group(1)
+            count = extract_count_from_suffix(suffix)
+            cmd_text = f"/bzcj {count}" if count is not None else cmd_text
+
+        if count is None:
+            action_match = re.search(r"(?:/bzcj\b|baozi_lottery\b)(.*)$", all_text, flags=re.IGNORECASE)
+            if action_match:
+                suffix = action_match.group(1)
+                count = extract_count_from_suffix(suffix)
+                if count is not None:
+                    cmd_text = f"baozi_lottery {count}"
 
         if count is None:
             # 兼容 event_data 中可能存在的 count 字段或参数字段
