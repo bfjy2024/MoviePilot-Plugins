@@ -435,6 +435,10 @@ class BaoziLottery(_PluginBase):
                 consecutive_auth_errors = 0
                 consecutive_request_errors = 0
                 self.__merge_response(result, response_data, count)
+                if self.__contains_vip_prize(response_data):
+                    result["status"] = "completed"
+                    result["message"] = "抽中VIP，停止抽奖"
+                    break
                 self.__sleep_between_requests()
 
             if result["status"] == "running":
@@ -536,6 +540,14 @@ class BaoziLottery(_PluginBase):
         else:
             return "other"
 
+    @staticmethod
+    def __contains_vip_prize(data: dict) -> bool:
+        for item in (data.get("results") or []):
+            prize_name = str(item.get("prize", {}).get("name") or "").lower()
+            if "vip" in prize_name:
+                return True
+        return False
+
     def __fetch_lottery_info(self) -> Dict[str, Any]:
         info = {
             "current_magic": "-",
@@ -583,11 +595,11 @@ class BaoziLottery(_PluginBase):
             info["message"] = "抽奖页面返回登录/权限提示，请检查 Cookie"
             return info
 
-        info["current_magic"] = self.__extract_number_near_label(plain_text, "当前用户拥有魔力")
-        info["cost_per_spin"] = self.__extract_number_near_label(plain_text, "每次抽奖需要魔力")
+        info["current_magic"] = self.__extract_number_after_label(plain_text, "当前用户拥有魔力")
+        info["cost_per_spin"] = self.__extract_number_after_label(plain_text, "每次抽奖需要魔力")
         logger.debug(f"Extracted current_magic: {info['current_magic']}, cost_per_spin: {info['cost_per_spin']}")  # 调试提取结果
-        drawn = self.__extract_number_near_label(plain_text, "今日已抽")
-        info["free_count"] = self.__extract_number_near_label(plain_text, "免费次数")
+        drawn = self.__extract_number_after_label(plain_text, "今日已抽")
+        info["free_count"] = self.__extract_number_after_label(plain_text, "免费次数")
         if "/" in drawn:
             left, right = [item.strip() for item in drawn.split("/", 1)]
             info["today_drawn"] = f"{left} / {right}"
@@ -776,8 +788,13 @@ class BaoziLottery(_PluginBase):
         return re.sub(r"\s+", " ", text).strip()
 
     @staticmethod
+    def __extract_number_after_label(text: str, label: str) -> str:
+        match = re.search(re.escape(label) + r"\s*[:：]?\s*([\d.]+)", text)
+        return match.group(1).strip() if match else "-"
+
+    @staticmethod
     def __extract_number_near_label(text: str, label: str) -> str:
-        number = r"([\d,.\s]+(?:\s*/\s*[\d,.\s]+)?)"
+        number = r"([\d,\.\s]+(?:\s*/\s*[\d,\.\s]+)?)"
         label_pattern = re.escape(label)
         before = re.search(number + r"\s*" + label_pattern, text)
         if before:
