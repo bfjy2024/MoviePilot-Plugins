@@ -80,10 +80,10 @@ class BaoziLottery(_PluginBase):
         return [
             {
                 "cmd": "/bzcj",
-                "event": "BaoziLottery",
-                "desc": "执行Baozi抽奖",
+                "event": EventType.PluginAction,
+                "desc": "执行Baozi抽奖，可指定次数 /bzcj 10",
                 "category": "抽奖",
-                "data": {}
+                "data": {"action": "baozi_lottery"}
             }
         ]
 
@@ -387,37 +387,38 @@ class BaoziLottery(_PluginBase):
         处理用户命令
         :param event: 事件数据
         """
+        if not self._enabled:
+            return
+        
         if not event or not event.event_data:
             return
 
         # 检查是否是本插件的命令
-        if event.event_data.get("action") != "BaoziLottery":
+        if event.event_data.get("action") != "baozi_lottery":
             return
 
-        # 获取命令和参数
-        cmd_data = event.event_data.get("data") or {}
-        cmd_text = cmd_data.get("cmd", "").strip()
+        # 获取命令文本和参数
+        cmd_text = event.event_data.get("cmd", "").strip()
+        
+        logger.info(f"收到Baozi抽奖命令：{cmd_text}")
 
-        # 解析命令：/bzcj [次数]
-        if not cmd_text.startswith("/bzcj"):
-            return
-
-        # 提取参数（抽奖次数）
+        # 提取参数（抽奖次数）：/bzcj [次数]
         parts = cmd_text.split()
         count = self.__safe_int(parts[1] if len(parts) > 1 else "1", 1, min_value=1)
-        
-        logger.info(f"收到命令：{cmd_text}，参数={count}")
 
         # 限制单次最大抽奖次数
         if count > 500:
+            msg = f"命令参数超出限制，最多支持一次性抽奖 500 次，您输入的是 {count} 次。"
             self.post_message(
                 mtype=NotificationType.Plugin,
                 title="【Baozi自动抽奖助手】",
-                text=f"命令参数超出限制，最多支持一次性抽奖 500 次，您输入的是 {count} 次。"
+                text=msg
             )
-            logger.warn(f"命令参数超出限制：{count}，最多 500 次")
+            logger.warn(msg)
             return
 
+        logger.info(f"执行Baozi抽奖：次数={count}")
+        
         # 在后台执行抽奖任务
         threading.Thread(
             target=self.__run_lottery_with_count,
