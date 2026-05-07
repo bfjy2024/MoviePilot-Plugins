@@ -415,28 +415,27 @@ class BaoziLottery(_PluginBase):
         all_text = " ".join(s for s in collect_strings(event_data) if s and isinstance(s, str)).strip()
         cmd_text = all_text
 
-        # 尝试只从 /bzcj 命令文本中提取次数，避免抓到其他无关数字
-        command_subtext = all_text
-        cmd_match = re.search(r"(/bzcj\b.*)$", all_text, flags=re.IGNORECASE)
+        # 优先从 /bzcj 命令后直接提取数字参数，避免捕获后面其它字段中的无关数字
+        count = None
+        cmd_match = re.search(r"/bzcj\b(?:\s*[:=]?\s*)(\d+)", all_text, flags=re.IGNORECASE)
         if cmd_match:
-            command_subtext = cmd_match.group(1)
-            cmd_text = command_subtext
+            count = self.__safe_int(cmd_match.group(1), 1, min_value=1)
+            cmd_text = cmd_match.group(0)
 
-        count_match = re.search(r"(?<!\d)(\d+)(?!\d)", command_subtext)
-        if count_match:
-            count = self.__safe_int(count_match.group(1), 1, min_value=1)
-        else:
-            count = None
-            if isinstance(event_data.get("count"), (int, float, str)):
-                count = self.__safe_int(event_data.get("count"), None, min_value=1)
-            if count is None:
-                count = 1
+        if count is None:
+            # 兼容 event_data 中可能存在的 count 字段或参数字段
+            raw_count = event_data.get("count")
+            if isinstance(raw_count, (int, float, str)):
+                count = self.__safe_int(raw_count, None, min_value=1)
 
-        if isinstance(event_data.get("count"), (int, float, str)) and count_match:
+        if count is None:
+            count = 1
+
+        if isinstance(event_data.get("count"), (int, float, str)) and count is not None:
             raw_count = self.__safe_int(event_data.get("count"), None, min_value=1)
             if raw_count is not None and raw_count != count:
                 logger.debug(
-                    f"Baozi command count mismatch: text_count={count}, event_data.count={raw_count}, event_data={event_data}"
+                    f"Baozi命令参数不一致：text_count={count}, event_data.count={raw_count}, event_data={event_data}"
                 )
 
         if count <= 0:
