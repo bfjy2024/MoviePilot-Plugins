@@ -553,8 +553,10 @@ class BaoziLottery(_PluginBase):
             consecutive_auth_errors = 0
             consecutive_request_errors = 0
 
-            for count in ([10] * ten_plan) + ([1] * one_plan):
-                response_data, error_kind, message = self.__post_spin(count=count, cookie=cookie)
+            request_sequence = ([10] * ten_plan) + ([1] * one_plan)
+            for index, request_count in enumerate(request_sequence, start=1):
+                logger.info(f"开始第{index}次抽奖请求：count={request_count}")
+                response_data, error_kind, message = self.__post_spin(count=request_count, cookie=cookie)
                 if error_kind == "quota_exhausted":
                     logger.warn(f"抽奖额度不足，任务停止：{message}")
                     result["status"] = "quota_exhausted"
@@ -585,7 +587,7 @@ class BaoziLottery(_PluginBase):
 
                 consecutive_auth_errors = 0
                 consecutive_request_errors = 0
-                self.__merge_response(result, response_data, count)
+                self.__merge_response(result, response_data, request_count)
                 if self.__contains_vip_prize(response_data):
                     result["status"] = "completed"
                     result["message"] = "抽中VIP，停止抽奖"
