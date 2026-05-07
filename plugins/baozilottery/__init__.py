@@ -666,8 +666,7 @@ class BaoziLottery(_PluginBase):
     def __send_notification(self, result: Dict[str, Any]):
         title = "【Baozi自动抽奖助手】"
         text = (
-            f"任务概况：目标抽奖 {result.get('target_count')} 次，实际完成 {result.get('completed_count')} 次。\n"
-            f"拆解详情：10连抽 x {result.get('ten_requests')} 次，单抽 x {result.get('one_requests')} 次。\n\n"
+            f"任务概况：目标抽奖 {result.get('target_count')} 次，中奖次数 {result.get('completed_count')} 次。\n"
             f"奖品名称汇总：\n{result.get('prize_text') or '无'}\n\n"
             f"状态：{result.get('status_text') or self.__status_text(result.get('status'))}\n"
             f"说明：{result.get('message')}"
