@@ -398,22 +398,34 @@ class BaoziLottery(_PluginBase):
             return
 
         # 获取命令文本和参数
-        cmd_text = (
-            event.event_data.get("cmd") or
-            event.event_data.get("command") or
-            event.event_data.get("text") or
-            (event.event_data.get("data") or {}).get("cmd") or
-            ""
-        )
-        cmd_text = str(cmd_text).strip()
+        event_data = event.event_data or {}
+        count = None
 
-        logger.info(f"收到Baozi抽奖命令：{cmd_text}")
+        if isinstance(event_data.get("count"), (int, float, str)):
+            count = self.__safe_int(event_data.get("count"), None, min_value=1)
 
-        # 提取参数（抽奖次数）：/bzcj [次数]
-        count_match = re.search(r"(\d+)", cmd_text)
-        count = self.__safe_int(count_match.group(1) if count_match else "1", 1, min_value=1)
+        def collect_strings(data):
+            strings = []
+            if isinstance(data, str):
+                return [data]
+            if isinstance(data, dict):
+                for value in data.values():
+                    strings.extend(collect_strings(value))
+            elif isinstance(data, list):
+                for item in data:
+                    strings.extend(collect_strings(item))
+            return strings
 
-        # 限制单次最大抽奖次数
+        all_text = " ".join(s for s in collect_strings(event_data) if s and isinstance(s, str)).strip()
+        cmd_text = all_text
+
+        if count is None:
+            count_match = re.search(r"(?<!\d)(\d+)(?!\d)", all_text)
+            count = self.__safe_int(count_match.group(1) if count_match else "1", 1, min_value=1)
+
+        if count <= 0:
+            count = 1
+
         if count > 500:
             msg = f"命令参数超出限制，最多支持一次性抽奖 500 次，您输入的是 {count} 次。"
             self.post_message(
@@ -423,6 +435,8 @@ class BaoziLottery(_PluginBase):
             )
             logger.warn(msg)
             return
+
+        logger.info(f"收到Baozi抽奖命令：{cmd_text}，解析次数={count}")
 
         logger.info(f"执行Baozi抽奖：次数={count}")
         
