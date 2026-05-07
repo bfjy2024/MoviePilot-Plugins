@@ -26,7 +26,7 @@ class BaoziLottery(_PluginBase):
     plugin_icon = "Moviepilot_A.png"
     plugin_version = "1.0.0"
     plugin_author = "bfjy"
-    author_url = "https://github.com/bfjy2024/MoviePilot-Plugins"
+    author_url = "https://bfjy2024.github.io/bfjy"
     plugin_config_prefix = "baozilottery_"
     plugin_order = 30
     auth_level = 1
@@ -482,15 +482,59 @@ class BaoziLottery(_PluginBase):
                 return None, "auth_failed", "接口返回 Cookie/权限类错误"
             return None, "request_failed", "接口返回非 JSON 响应"
 
-        if data.get("success") is False:
-            message = str(data.get("message") or "接口返回失败")
+        if data.get("ret") != 0:
+            message = str(data.get("msg") or "接口返回失败")
             if "今日剩余抽奖次数不足" in message:
                 return data, "quota_exhausted", message
             if self.__is_auth_message(message):
                 return data, "auth_failed", message
             return data, "request_failed", message
 
-        return data, None, ""
+        # 解析 Baozi 的 prize_text 为 results 数组
+        results = self.__parse_prize_text(data.get("data", {}).get("prize_text", ""))
+        simulated_data = {"success": True, "results": results}
+        return simulated_data, None, ""
+
+    @staticmethod
+    def __parse_prize_text(prize_text: str) -> List[Dict[str, Any]]:
+        results = []
+        if not prize_text:
+            return results
+        # 按 <br/> 或 <br> 分割奖品
+        prizes = re.split(r'<br\s*/?>', prize_text.strip())
+        for prize in prizes:
+            prize = prize.strip()
+            if not prize:
+                continue
+            # 匹配格式：数量 次 类型 值 单位
+            match = re.match(r'(\d+)\s*次\s*(.+?)\s*(\d+(?:\.\d+)?)\s*(.*)', prize)
+            if match:
+                count, prize_type, value_str, unit = match.groups()
+                count = int(count)
+                value = float(value_str) if '.' in value_str else int(value_str)
+                # 模拟 results 数组，每个奖品重复 count 次
+                for _ in range(count):
+                    result_item = {
+                        "prize": {"name": f"{prize_type} {value} {unit}".strip()},
+                        "result": {
+                            "status": "awarded",
+                            "type": BaoziLottery.__map_prize_type(prize_type),
+                            "value": value,
+                            "unit": unit
+                        }
+                    }
+                    results.append(result_item)
+        return results
+
+    @staticmethod
+    def __map_prize_type(prize_type: str) -> str:
+        prize_type_lower = prize_type.lower()
+        if "魔力" in prize_type_lower:
+            return "bonus"
+        elif "上传" in prize_type_lower or "流量" in prize_type_lower:
+            return "traffic"
+        else:
+            return "other"
 
     def __fetch_lottery_info(self) -> Dict[str, Any]:
         info = {
@@ -538,8 +582,8 @@ class BaoziLottery(_PluginBase):
             info["message"] = "抽奖页面返回登录/权限提示，请检查 Cookie"
             return info
 
-        info["current_magic"] = self.__extract_number_near_label(plain_text, "当前魔力")
-        info["cost_per_spin"] = self.__extract_number_near_label(plain_text, "每次消耗")
+        info["current_magic"] = self.__extract_number_near_label(plain_text, "当前用户拥有魔力")
+        info["cost_per_spin"] = self.__extract_number_near_label(plain_text, "每次抽奖需要魔力")
         drawn = self.__extract_number_near_label(plain_text, "今日已抽")
         info["free_count"] = self.__extract_number_near_label(plain_text, "免费次数")
         if "/" in drawn:
