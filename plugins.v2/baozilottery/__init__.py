@@ -462,6 +462,16 @@ class BaoziLottery(_PluginBase):
         if count <= 0:
             count = 1
 
+        if count % 10 != 0:
+            msg = f"抽奖次数必须是 10 的整数倍，您输入的是 {count} 次。"
+            self.post_message(
+                mtype=NotificationType.Plugin,
+                title="【Baozi自动抽奖助手】",
+                text=msg
+            )
+            logger.warn(msg)
+            return
+
         if count > 500:
             msg = f"命令参数超出限制，最多支持一次性抽奖 500 次，您输入的是 {count} 次。"
             self.post_message(
