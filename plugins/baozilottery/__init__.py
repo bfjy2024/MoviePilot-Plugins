@@ -398,13 +398,20 @@ class BaoziLottery(_PluginBase):
             return
 
         # 获取命令文本和参数
-        cmd_text = event.event_data.get("cmd", "").strip()
-        
+        cmd_text = (
+            event.event_data.get("cmd") or
+            event.event_data.get("command") or
+            event.event_data.get("text") or
+            (event.event_data.get("data") or {}).get("cmd") or
+            ""
+        )
+        cmd_text = str(cmd_text).strip()
+
         logger.info(f"收到Baozi抽奖命令：{cmd_text}")
 
         # 提取参数（抽奖次数）：/bzcj [次数]
-        parts = cmd_text.split()
-        count = self.__safe_int(parts[1] if len(parts) > 1 else "1", 1, min_value=1)
+        count_match = re.search(r"(\d+)", cmd_text)
+        count = self.__safe_int(count_match.group(1) if count_match else "1", 1, min_value=1)
 
         # 限制单次最大抽奖次数
         if count > 500:
