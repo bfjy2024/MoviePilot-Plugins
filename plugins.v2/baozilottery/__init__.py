@@ -555,7 +555,7 @@ class BaoziLottery(_PluginBase):
             "accept-language": "zh-CN,zh;q=0.9",
             "cache-control": "no-cache",
             "pragma": "no-cache",
-            "referer": "https://p.t-baozi.cc/",
+            "referer": self.REFERER,  # 使用抽奖页面作为Referer
             "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
         }
         try:
@@ -578,12 +578,14 @@ class BaoziLottery(_PluginBase):
             return info
 
         plain_text = self.__html_to_text(response.text or "")
+        logger.debug(f"Baozi lottery page plain_text: {plain_text[:500]}")  # 记录前500字符用于调试
         if any(word in plain_text for word in ["Cookie失效", "非法访问", "请先登录", "未登录"]):
             info["message"] = "抽奖页面返回登录/权限提示，请检查 Cookie"
             return info
 
         info["current_magic"] = self.__extract_number_near_label(plain_text, "当前用户拥有魔力")
         info["cost_per_spin"] = self.__extract_number_near_label(plain_text, "每次抽奖需要魔力")
+        logger.debug(f"Extracted current_magic: {info['current_magic']}, cost_per_spin: {info['cost_per_spin']}")  # 调试提取结果
         drawn = self.__extract_number_near_label(plain_text, "今日已抽")
         info["free_count"] = self.__extract_number_near_label(plain_text, "免费次数")
         if "/" in drawn:
@@ -775,12 +777,12 @@ class BaoziLottery(_PluginBase):
 
     @staticmethod
     def __extract_number_near_label(text: str, label: str) -> str:
-        number = r"([\d,]+(?:\s*/\s*[\d,]+)?)"
+        number = r"([\d,.\s]+(?:\s*/\s*[\d,.\s]+)?)"
         label_pattern = re.escape(label)
         before = re.search(number + r"\s*" + label_pattern, text)
         if before:
             return re.sub(r"\s+", " ", before.group(1)).strip()
-        after = re.search(label_pattern + r"\s*" + number, text)
+        after = re.search(label_pattern + r"\s*[:：]?\s*" + number, text)  # 添加可选的 : 或 ：
         if after:
             return re.sub(r"\s+", " ", after.group(1)).strip()
         return "-"
