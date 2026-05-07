@@ -22,10 +22,10 @@ urllib3.disable_warnings(InsecureRequestWarning)
 
 class BaoziLottery(_PluginBase):
     plugin_name = "Baozi自动抽奖助手"
-    plugin_desc = "按每日目标次数自动拆解并执行 Baozi 抽奖。"
+    plugin_desc = "根据设置的抽奖次数与定时自动抽奖，当抽中VIP或者达到预设抽奖次数时停止抽奖。"
     plugin_icon = "Moviepilot_A.png"
-    plugin_version = "1.0.0"
-    plugin_author = "bfjy"
+    plugin_version = "1.0.1"
+    plugin_author = "bfjy,jiangbkvir"
     author_url = "https://bfjy2024.github.io/bfjy"
     plugin_config_prefix = "baozilottery_"
     plugin_order = 30

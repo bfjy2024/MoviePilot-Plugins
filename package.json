@@ -1106,13 +1106,14 @@
   },
     "BaoziLottery": {
     "name": "Baozi自动抽奖助手",
-    "description": "按每日目标次数自动拆解并执行 Baozi 抽奖。",
+    "description": "根据设置的抽奖次数与定时自动抽奖，当抽中VIP或者达到预设抽奖次数时停止抽奖。",
     "labels": "抽奖，自动化",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "icon": "Moviepilot_A.png",
-    "author": "bfjy",
+    "author": "bfjy,jiangbkvir",
     "level": 1,
     "history": {
+      "v1.0.1": "抽中VIP后自动停止抽奖",
       "v1.0.0": "初始版本"
     }
   }  
