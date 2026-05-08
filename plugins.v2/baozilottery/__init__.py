@@ -295,7 +295,6 @@ class BaoziLottery(_PluginBase):
                         {"title": "目标", "key": "target_count"},
                         {"title": "完成", "key": "completed_count"},
                         {"title": "10连抽", "key": "ten_requests"},
-                        {"title": "单抽", "key": "one_requests"},
                         {"title": "魔力值", "key": "bonus"},
                         {"title": "流量", "key": "traffic_text"},
                         {"title": "其他奖励", "key": "other_text"},
@@ -546,14 +545,21 @@ class BaoziLottery(_PluginBase):
                 return result
 
             target_count = self.__safe_int(self._target_count, 2000, min_value=1)
+            if target_count % 10 != 0:
+                result = self.__new_result(target_count=target_count, planned_ten=target_count // 10, planned_one=0)
+                result["status"] = "failed"
+                result["message"] = "抽奖次数必须是 10 的整数倍"
+                self.__finish_task(result)
+                logger.warn(f"抽奖任务终止：目标抽奖次数 {target_count} 不是 10 的整数倍")
+                return result
+
             ten_plan = target_count // 10
-            one_plan = target_count % 10
-            logger.info(f"抽奖任务开始：目标={target_count}，10连抽计划={ten_plan}，单抽计划={one_plan}")
-            result = self.__new_result(target_count=target_count, planned_ten=ten_plan, planned_one=one_plan)
+            logger.info(f"抽奖任务开始：目标={target_count}，10连抽计划={ten_plan}")
+            result = self.__new_result(target_count=target_count, planned_ten=ten_plan, planned_one=0)
             consecutive_auth_errors = 0
             consecutive_request_errors = 0
 
-            request_sequence = ([10] * ten_plan) + ([1] * one_plan)
+            request_sequence = [10] * ten_plan
             for index, request_count in enumerate(request_sequence, start=1):
                 logger.info(f"开始第{index}次抽奖请求：count={request_count}")
                 response_data, error_kind, message = self.__post_spin(count=request_count, cookie=cookie)
@@ -600,8 +606,7 @@ class BaoziLottery(_PluginBase):
             self.__finish_task(result)
             logger.info(
                 f"抽奖任务结束：状态={result.get('status_text')}，目标={result.get('target_count')}，"
-                f"完成={result.get('completed_count')}，10连抽={result.get('ten_requests')}，"
-                f"单抽={result.get('one_requests')}"
+                f"完成={result.get('completed_count')}，10连抽={result.get('ten_requests')}"
             )
             return result
         finally:
