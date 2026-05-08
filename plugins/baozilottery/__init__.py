@@ -579,6 +579,17 @@ class BaoziLottery(_PluginBase):
                         break
                     self.__sleep_between_requests()
                     continue
+                if error_kind == "no_prize":
+                    consecutive_request_errors += 1
+                    consecutive_auth_errors = 0
+                    result["message"] = message
+                    logger.warn(f"抽奖请求成功但无奖品信息：{message}，当前连续失败次数={consecutive_request_errors}")
+                    if consecutive_request_errors >= 3:
+                        result["status"] = "failed"
+                        result["message"] = "连续 3 次无奖品信息，任务已熔断"
+                        break
+                    self.__sleep_between_requests()
+                    continue
                 if error_kind:
                     consecutive_request_errors += 1
                     consecutive_auth_errors = 0
@@ -671,7 +682,10 @@ class BaoziLottery(_PluginBase):
 
         logger.info(f"Baozi 抽奖接口请求成功：count={count}，返回 prize_text 长度={len(str(data.get('data', {}).get('prize_text', '')))}")
         # 解析 Baozi 的 prize_text 为 results 数组
-        results = self.__parse_prize_text(data.get("data", {}).get("prize_text", ""))
+        prize_text = data.get("data", {}).get("prize_text", "")
+        results = self.__parse_prize_text(prize_text)
+        if not prize_text:
+            return None, "no_prize", "抽奖成功但无奖品信息，可能未执行抽奖"
         simulated_data = {"success": True, "results": results}
         return simulated_data, None, ""
 
@@ -867,7 +881,7 @@ class BaoziLottery(_PluginBase):
     def __send_notification(self, result: Dict[str, Any]):
         title = "【Baozi自动抽奖助手】"
         text = (
-            f"任务概况：目标抽奖 {result.get('target_count')} 次，中奖次数 {result.get('completed_count')} 次。\n"
+            f"任务概况：目标抽奖 {result.get('target_count')} 次，实际抽奖 {result.get('ten_requests') * 10} 次，中奖次数 {result.get('completed_count')} 次。\n"
             f"奖品名称汇总：\n{result.get('prize_text') or '无'}\n\n"
             f"状态：{result.get('status_text') or self.__status_text(result.get('status'))}\n"
             f"说明：{result.get('message')}"
