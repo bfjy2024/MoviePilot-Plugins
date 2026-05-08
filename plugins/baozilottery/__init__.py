@@ -579,6 +579,11 @@ class BaoziLottery(_PluginBase):
                         break
                     self.__sleep_between_requests()
                     continue
+                if error_kind == "rate_limit":
+                    result["message"] = message
+                    logger.warn(f"抽奖请求触发频率限制：{message}，等待后重试")
+                    self.__sleep_for_rate_limit()
+                    continue
                 if error_kind == "no_prize":
                     consecutive_request_errors += 1
                     consecutive_auth_errors = 0
@@ -676,6 +681,8 @@ class BaoziLottery(_PluginBase):
             logger.warn(f"Baozi 抽奖接口返回失败：count={count}，message={message}")
             if "今日剩余抽奖次数不足" in message:
                 return data, "quota_exhausted", message
+            if "不要重复点击" in message or "点击过于频繁" in message or "请稍后" in message:
+                return data, "rate_limit", message
             if self.__is_auth_message(message):
                 return data, "auth_failed", message
             return data, "request_failed", message
@@ -1063,6 +1070,12 @@ class BaoziLottery(_PluginBase):
     def __sleep_between_requests():
         delay = random.randint(2, 5)
         logger.info(f"抽奖请求间隔等待：{delay} 秒")
+        time.sleep(delay)
+
+    @staticmethod
+    def __sleep_for_rate_limit():
+        delay = random.randint(8, 15)
+        logger.warn(f"抽奖请求触发频率限制，等待 {delay} 秒后重试")
         time.sleep(delay)
 
     @staticmethod
