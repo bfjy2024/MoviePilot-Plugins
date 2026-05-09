@@ -1,11 +1,13 @@
 import logging
 import requests
 from typing import Any, Dict, List, Optional
+from app.log import logger
+from app.plugins import _PluginBase
 
 logger = logging.getLogger(__name__)
 
 
-class ZqljSignPlugin:
+class ZqljSignPlugin(_PluginBase):
     """MoviePilot 插件：自动访问天天打卡页面并报告结果。
 
     配置项（通过插件配置页面填写）：
