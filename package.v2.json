@@ -644,5 +644,16 @@
       "v1.0.1": "抽中VIP后自动停止抽奖",
       "v1.0.0": "初始版本"
     }
+  },
+    "ZqljSignPlugin":{
+    "name": "Yzyy论坛签到",
+    "version": "1.0.0",
+    "description": "使用自定义 Cookie 定时访问天天打卡页面并报告状态。",
+    "author": "bfjy",
+    "icon": "yzyyA.png",
+    "level": 2,
+    "history": {
+      "v1.0.0": "初始版本"
+    }
   } 
 }
