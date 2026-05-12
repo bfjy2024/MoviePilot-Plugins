@@ -656,7 +656,7 @@
       "v1.0.0": "初始版本"
     }
   },
-    "TangPTHongbao":{
+    "TangRedPacket":{
     "name": "不可躺发红包插件",
     "version": "1.0.0",
     "description": "自动在不可躺网站发送红包，支持自定义红包类型、数量、金额和消息。",
