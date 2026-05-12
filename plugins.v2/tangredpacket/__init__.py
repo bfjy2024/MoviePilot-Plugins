@@ -23,7 +23,7 @@ class TangRedPacket(_PluginBase):
     plugin_desc = "自动在不可躺站点发送红包，支持定时和立即执行。"
     plugin_icon = "Moviepilot_A.png"
     plugin_version = "1.0.0"
-    plugin_author = "bfjy"
+    plugin_author = "bfjy，jiangbkvir"
     author_url = "https://github.com/bfjy2024/MoviePilot-Plugins"
     plugin_config_prefix = "tangredpacket_"
     plugin_order = 30
