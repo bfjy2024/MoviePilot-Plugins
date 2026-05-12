@@ -655,5 +655,16 @@
     "history": {
       "v1.0.0": "初始版本"
     }
-  } 
+  },
+    "TangPTHongbao":{
+    "name": "不可躺发红包插件",
+    "version": "1.0.0",
+    "description": "自动在指定网站发送红包，支持自定义红包类型、数量、金额和消息。",
+    "author": "bfjy",
+    "icon": "Moviepilot_A.png",
+    "level": 2,
+    "history": {
+      "v1.0.0": "初始版本"
+    }
+  }   
 }
