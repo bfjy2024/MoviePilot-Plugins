@@ -647,8 +647,8 @@
   },
     "YYzyySignin":{
     "name": "Yzyy论坛签到",
-    "version": "1.0.0",
-    "description": "使用自定义 Cookie 定时访问天天打卡页面并报告状态。",
+    "version": "1.0.1",
+    "description": "yzyy论坛每日签到。",
     "author": "bfjy",
     "icon": "yzyyA.png",
     "level": 2,
