@@ -645,7 +645,7 @@
       "v1.0.0": "初始版本"
     }
   },
-    "YYzyySignin":{
+    "YzyySignin":{
     "name": "Yzyy论坛签到",
     "version": "1.0.1",
     "description": "yzyy论坛每日签到。",
