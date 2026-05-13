@@ -647,7 +647,7 @@
   },
     "YzyySignin":{
     "name": "Yzyy论坛签到",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "yzyy论坛每日签到。",
     "author": "bfjy",
     "icon": "yzyyA.png",

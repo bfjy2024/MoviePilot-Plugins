@@ -21,9 +21,9 @@ class YzyySignin(_PluginBase):
     # 插件描述
     plugin_desc = "yzyy论坛每日签到。"
     # 插件图标
-    plugin_icon = "yzyyA.png"
+    plugin_icon = "yzyy.png"
     # 插件版本
-    plugin_version = "1.0.1"
+    plugin_version = "1.0.2"
     # 插件作者
     plugin_author = "bfjy"
     # 作者主页
@@ -43,6 +43,7 @@ class YzyySignin(_PluginBase):
     _onlyonce = False
     _notify = False
     _history_days = None
+    _sign_param = None  # 新增：签到参数
 
     # 定时器
     _scheduler: Optional[BackgroundScheduler] = None
@@ -58,6 +59,7 @@ class YzyySignin(_PluginBase):
             self._notify = config.get("notify")
             self._onlyonce = config.get("onlyonce")
             self._history_days = config.get("history_days") or 30
+            self._sign_param = config.get("sign_param") or "c948bee4"
 
         if self._onlyonce:
             # 定时服务
@@ -75,6 +77,7 @@ class YzyySignin(_PluginBase):
                 "cookie": self._cookie,
                 "notify": self._notify,
                 "history_days": self._history_days,
+                "sign_param": self._sign_param,
             })
 
             # 启动任务
@@ -88,9 +91,111 @@ class YzyySignin(_PluginBase):
         """
         if not self._cookie:
             logger.error("cookie未配置")
+            
+            # 发送通知
+            if self._notify:
+                self.post_message(
+                    mtype=NotificationType.SiteMessage,
+                    title="【yzyy论坛签到任务完成】",
+                    text="签到失败：cookie未配置")
             return
 
-        headers = {
+        # 构建headers
+        headers = self.__build_headers()
+        
+        # 构建签到URL
+        sign_url = f'https://yzyy.org/plugin.php?id=zqlj_sign&sign={self._sign_param}'
+        
+        try:
+            # 发送签到请求
+            logger.info(f"开始yzyy论坛签到，URL: {sign_url}")
+            res = RequestUtils(headers=headers, cookies=self._cookie).get_res(url=sign_url)
+            
+            if not res:
+                error_msg = "请求yzyy论坛失败：无响应"
+                logger.error(error_msg)
+                
+                # 发送通知
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【yzyy论坛签到任务完成】",
+                        text=error_msg)
+                return
+            
+            if res.status_code != 200:
+                error_msg = f"请求yzyy论坛失败，状态码: {res.status_code}"
+                logger.error(error_msg)
+                
+                # 发送通知
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【yzyy论坛签到任务完成】",
+                        text=error_msg)
+                return
+
+            # 检查签到结果
+            sign_result = self.__check_sign_result(res.text)
+            
+            if sign_result["success"]:
+                logger.info("yzyy论坛签到成功")
+                
+                # 保存签到历史
+                self.__save_sign_history(success=True, info=sign_result.get("info", "签到成功"))
+                
+                # 发送通知
+                if self._notify:
+                    notification_text = f"签到成功\n{sign_result.get('info', '')}"
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【yzyy论坛签到任务完成】",
+                        text=notification_text)
+                
+            elif sign_result.get("already_signed", False):
+                logger.info("yzyy论坛今日已签到")
+                
+                # 保存签到历史
+                self.__save_sign_history(success=True, info="今日已签到")
+                
+                # 发送通知
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【yzyy论坛签到任务完成】",
+                        text="今日已签到")
+                    
+            else:
+                error_msg = sign_result.get("error", "签到失败")
+                logger.error(f"yzyy论坛签到失败: {error_msg}")
+                
+                # 保存签到历史
+                self.__save_sign_history(success=False, info=error_msg)
+                
+                # 发送通知
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【yzyy论坛签到任务完成】",
+                        text=f"签到失败: {error_msg}")
+
+        except Exception as e:
+            error_msg = f"yzyy论坛签到发生异常: {str(e)}"
+            logger.error(error_msg)
+            
+            # 保存签到历史
+            self.__save_sign_history(success=False, info=error_msg)
+            
+            # 发送通知
+            if self._notify:
+                self.post_message(
+                    mtype=NotificationType.SiteMessage,
+                    title="【yzyy论坛签到任务完成】",
+                    text=f"签到异常: {str(e)}")
+
+    def __build_headers(self) -> Dict[str, str]:
+        """构建请求headers"""
+        return {
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
             'priority': 'u=0, i',
@@ -106,126 +211,175 @@ class YzyySignin(_PluginBase):
             'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0'
         }
 
-        # 构造签到URL（注意：从cURL中提取的sign参数需要根据实际变化）
-        # 这里使用固定的sign参数，实际可能需要动态获取
-        sign_url = 'https://yzyy.org/plugin.php?id=zqlj_sign&sign=c948bee4'
+    def __check_sign_result(self, html_text: str) -> Dict[str, Any]:
+        """
+        检查签到结果
+        返回: {
+            "success": bool,        # 签到是否成功
+            "already_signed": bool, # 是否已签到
+            "info": str,           # 成功信息
+            "error": str           # 错误信息
+        }
+        """
+        result = {
+            "success": False,
+            "already_signed": False,
+            "info": "",
+            "error": ""
+        }
         
         try:
-            # 发送签到请求
-            res = RequestUtils(headers=headers, cookies=self._cookie).get_res(url=sign_url)
+            # 检查是否已签到（常见提示词）
+            already_sign_patterns = [
+                "今日已签到",
+                "已签过",
+                "已经签到",
+                "签到过了",
+                "您已经签过到了",
+                "请不要重复签到",
+                "您今日已经签到"
+            ]
             
-            if not res or res.status_code != 200:
-                logger.error(f"请求yzyy论坛失败，状态码: {res.status_code if res else '无响应'}")
-                
-                # 发送通知
-                if self._notify:
-                    self.post_message(
-                        mtype=NotificationType.SiteMessage,
-                        title="【yzyy论坛签到任务完成】",
-                        text="签到失败，请检查cookie是否失效")
-                return
-
-            # 检查签到是否成功
-            # 这里需要根据实际返回内容判断签到成功与否
-            # 示例：检查页面中是否包含签到成功的关键字
-            if "签到成功" in res.text or "已签到" in res.text or "签到天数" in res.text:
-                logger.info("yzyy论坛签到成功")
-                
-                # 尝试从页面中提取签到信息
-                sign_info = self.__parse_sign_info(res.text)
-                
-                # 发送通知
-                if self._notify:
-                    notification_text = "签到成功"
-                    if sign_info:
-                        notification_text += f"\n{sign_info}"
-                    self.post_message(
-                        mtype=NotificationType.SiteMessage,
-                        title="【yzyy论坛签到任务完成】",
-                        text=notification_text)
-                
-                # 读取历史记录
-                history = self.get_data('history') or []
-
-                history.append({
-                    "date": datetime.today().strftime('%Y-%m-%d %H:%M:%S'),
-                    "result": "成功",
-                    "info": sign_info or "签到完成"
-                })
-
-                # 清理过期历史记录
-                days_ago = time.time() - int(self._history_days) * 24 * 60 * 60
-                history = [record for record in history if
-                           datetime.strptime(record["date"],
-                                             '%Y-%m-%d %H:%M:%S').timestamp() >= days_ago]
-                # 保存签到历史
-                self.save_data(key="history", value=history)
-            else:
-                logger.error("yzyy论坛签到失败，可能已签到或cookie失效")
-                
-                # 检查是否已签到
-                if "今日已签到" in res.text or "已签过" in res.text:
-                    logger.info("今日已签到")
-                    
-                    # 发送通知
-                    if self._notify:
-                        self.post_message(
-                            mtype=NotificationType.SiteMessage,
-                            title="【yzyy论坛签到任务完成】",
-                            text="今日已签到")
+            for pattern in already_sign_patterns:
+                if pattern in html_text:
+                    result["already_signed"] = True
+                    result["info"] = "今日已签到"
+                    return result
+            
+            # 检查签到成功（常见提示词）
+            success_patterns = [
+                "签到成功",
+                "签到天数",
+                "签到获得",
+                "积分增加",
+                "奖励",
+                "签到完成"
+            ]
+            
+            for pattern in success_patterns:
+                if pattern in html_text:
+                    # 解析签到成功信息
+                    sign_info = self.__parse_sign_info(html_text)
+                    result["success"] = True
+                    result["info"] = sign_info
+                    return result
+            
+            # 检查登录状态（如果cookie失效）
+            if "请登录" in html_text or "登录" in html_text and ("先" in html_text or "后" in html_text):
+                result["error"] = "cookie已失效，请重新登录获取"
+                return result
+            
+            # 检查权限不足
+            if "权限" in html_text or "禁止" in html_text or "无权" in html_text:
+                result["error"] = "权限不足或签到功能不可用"
+                return result
+            
+            # 检查网络错误或其他错误
+            if "错误" in html_text or "失败" in html_text:
+                # 尝试提取具体错误信息
+                error_match = re.search(r'<div class="error">(.*?)</div>', html_text, re.S)
+                if error_match:
+                    result["error"] = f"签到错误: {error_match.group(1).strip()[:100]}"
                 else:
-                    logger.error("签到失败")
-                    
-                    # 发送通知
-                    if self._notify:
-                        self.post_message(
-                            mtype=NotificationType.SiteMessage,
-                            title="【yzyy论坛签到任务完成】",
-                            text="签到失败，请检查cookie是否失效")
-
-        except Exception as e:
-            logger.error(f"yzyy论坛签到发生异常: {str(e)}")
+                    result["error"] = "签到过程出现错误"
+                return result
             
-            # 发送通知
-            if self._notify:
-                self.post_message(
-                    mtype=NotificationType.SiteMessage,
-                    title="【yzyy论坛签到任务完成】",
-                    text=f"签到异常: {str(e)}")
+            # 如果没有匹配到任何模式，尝试从页面标题或内容判断
+            title_match = re.search(r'<title>(.*?)</title>', html_text)
+            if title_match:
+                title = title_match.group(1)
+                if "签到" in title and ("成功" in title or "完成" in title):
+                    sign_info = self.__parse_sign_info(html_text)
+                    result["success"] = True
+                    result["info"] = sign_info
+                    return result
+            
+            # 默认情况：无法识别签到状态
+            result["error"] = "无法识别签到状态，请检查页面内容"
+            
+        except Exception as e:
+            result["error"] = f"解析签到结果时发生异常: {str(e)}"
+        
+        return result
 
     def __parse_sign_info(self, html_text: str) -> str:
-        """
-        解析签到页面，提取签到信息
-        需要根据实际的HTML结构进行调整
-        """
+        """解析签到信息"""
         try:
-            # 这里添加解析逻辑
-            # 示例：查找签到天数、积分等信息
+            info_parts = []
             
             # 查找签到天数
-            days_pattern = r'签到天数.*?(\d+)'
-            days_match = re.search(days_pattern, html_text)
+            days_patterns = [
+                r'签到天数[：:]\s*(\d+)',
+                r'已签到\s*(\d+)\s*天',
+                r'连续签到\s*(\d+)\s*天'
+            ]
             
-            # 查找积分信息
-            points_pattern = r'积分.*?(\d+)'
-            points_match = re.search(points_pattern, html_text)
+            for pattern in days_patterns:
+                match = re.search(pattern, html_text)
+                if match:
+                    info_parts.append(f"签到天数: {match.group(1)}")
+                    break
             
-            info_parts = []
-            if days_match:
-                info_parts.append(f"签到天数: {days_match.group(1)}")
-            if points_match:
-                info_parts.append(f"积分: {points_match.group(1)}")
+            # 查找积分/金币
+            points_patterns = [
+                r'积分[：:]\s*(\d+)',
+                r'金币[：:]\s*(\d+)',
+                r'获得\s*(\d+)\s*积分',
+                r'增加\s*(\d+)\s*积分'
+            ]
+            
+            for pattern in points_patterns:
+                match = re.search(pattern, html_text)
+                if match:
+                    info_parts.append(f"积分: {match.group(1)}")
+                    break
+            
+            # 查找经验值
+            exp_patterns = [
+                r'经验[：:]\s*(\d+)',
+                r'获得\s*(\d+)\s*经验'
+            ]
+            
+            for pattern in exp_patterns:
+                match = re.search(pattern, html_text)
+                if match:
+                    info_parts.append(f"经验: {match.group(1)}")
+                    break
             
             if info_parts:
                 return " | ".join(info_parts)
             else:
-                # 尝试其他常见模式
-                # 这里可以根据实际页面结构添加更多解析逻辑
+                # 尝试提取通用信息
+                # 查找包含"签到"的div或span
+                sign_div = re.search(r'<div[^>]*>.*?签到.*?</div>', html_text, re.S)
+                if sign_div:
+                    clean_text = re.sub(r'<[^>]+>', '', sign_div.group(0)).strip()[:50]
+                    return clean_text if clean_text else "签到成功"
+                
                 return "签到成功"
                 
         except Exception as e:
             logger.error(f"解析签到信息失败: {str(e)}")
             return "签到成功"
+
+    def __save_sign_history(self, success: bool, info: str = ""):
+        """保存签到历史记录"""
+        # 读取历史记录
+        history = self.get_data('history') or []
+
+        history.append({
+            "date": datetime.today().strftime('%Y-%m-%d %H:%M:%S'),
+            "result": "成功" if success else "失败",
+            "info": info or ("签到成功" if success else "签到失败")
+        })
+
+        # 清理过期历史记录
+        days_ago = time.time() - int(self._history_days) * 24 * 60 * 60
+        history = [record for record in history if
+                   datetime.strptime(record["date"],
+                                     '%Y-%m-%d %H:%M:%S').timestamp() >= days_ago]
+        # 保存签到历史
+        self.save_data(key="history", value=history)
 
     def get_state(self) -> bool:
         return self._enabled
@@ -319,7 +473,7 @@ class YzyySignin(_PluginBase):
                                 'component': 'VCol',
                                 'props': {
                                     'cols': 12,
-                                    'md': 4
+                                    'md': 6
                                 },
                                 'content': [
                                     {
@@ -336,7 +490,29 @@ class YzyySignin(_PluginBase):
                                 'component': 'VCol',
                                 'props': {
                                     'cols': 12,
-                                    'md': 4
+                                    'md': 6
+                                },
+                                'content': [
+                                    {
+                                        'component': 'VTextField',
+                                        'props': {
+                                            'model': 'sign_param',
+                                            'label': '签到参数',
+                                            'placeholder': 'c948bee4 (从签到URL获取)'
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        'component': 'VRow',
+                        'content': [
+                            {
+                                'component': 'VCol',
+                                'props': {
+                                    'cols': 12,
+                                    'md': 6
                                 },
                                 'content': [
                                     {
@@ -353,7 +529,7 @@ class YzyySignin(_PluginBase):
                                 'component': 'VCol',
                                 'props': {
                                     'cols': 12,
-                                    'md': 4
+                                    'md': 6
                                 },
                                 'content': [
                                     {
@@ -382,7 +558,7 @@ class YzyySignin(_PluginBase):
                                         'props': {
                                             'type': 'info',
                                             'variant': 'tonal',
-                                            'text': '请登录yzyy论坛后，在浏览器开发者工具中复制Cookie字段。注意：cookie可能包含敏感信息，请妥善保管。'
+                                            'text': '请登录yzyy论坛后，在浏览器开发者工具中复制Cookie字段。签到参数从签到URL中获取（如：...&sign=c948bee4中的c948bee4）。'
                                         }
                                     }
                                 ]
@@ -403,7 +579,7 @@ class YzyySignin(_PluginBase):
                                         'props': {
                                             'type': 'warning',
                                             'variant': 'tonal',
-                                            'text': '注意：签到URL中的sign参数可能会变化，如果签到失败可能需要更新sign参数。签到逻辑基于提供的cURL命令，可能需要根据实际情况调整。'
+                                            'text': '注意：签到URL中的sign参数可能会变化，如果签到失败请更新签到参数。插件会区分"已签到"、"cookie失效"、"权限不足"等不同情况。'
                                         }
                                     }
                                 ]
@@ -417,6 +593,7 @@ class YzyySignin(_PluginBase):
             "onlyonce": False,
             "notify": False,
             "cookie": "",
+            "sign_param": "c948bee4",
             "history_days": 30,
             "cron": "0 9 * * *"
         }
@@ -461,12 +638,15 @@ class YzyySignin(_PluginBase):
                     },
                     {
                         'component': 'td',
+                        'props': {
+                            'class': 'text-success' if history.get("result") == "成功" else 'text-error'
+                        },
                         'text': history.get("result", "")
                     },
                     {
                         'component': 'td',
                         'props': {
-                            'style': 'max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'
+                            'style': 'max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'
                         },
                         'text': history.get("info", "")
                     }
@@ -506,7 +686,7 @@ class YzyySignin(_PluginBase):
                                                 'props': {
                                                     'class': 'text-start ps-4'
                                                 },
-                                                'text': '结果'
+                                                'text': '签到结果'
                                             },
                                             {
                                                 'component': 'th',
@@ -540,4 +720,4 @@ class YzyySignin(_PluginBase):
                     self._scheduler.shutdown()
                 self._scheduler = None
         except Exception as e:
-            logger.error("退出插件失败：%s" % str(e))
+            logger.error("停止插件服务失败：%s" % str(e))
