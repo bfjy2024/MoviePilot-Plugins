@@ -21,7 +21,7 @@ class YzyySignin(_PluginBase):
     # 插件描述
     plugin_desc = "yzyy论坛每日签到。"
     # 插件图标
-    plugin_icon = "yzyy.png"
+    plugin_icon = "yzyy_A.png"
     # 插件版本
     plugin_version = "1.0.2"
     # 插件作者
