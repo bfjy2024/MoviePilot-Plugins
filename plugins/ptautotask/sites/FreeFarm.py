@@ -28,8 +28,8 @@ class Tasks(BaseTask):
     def __init__(self, cookie: str):
         super().__init__(FreeFarm(cookie))
 
-    @task_info(label="自由农场每月做种领取", hint="领取 自由农场 站点的每月做种任务")
-    def monthly_claim_task(self):
+    @task_info(label="自由农场每周任务领取", hint="领取 自由农场 站点的每周做种任务")
+    def weekly_claim_task(self):
         task_id_list = ["12"]
         return "\n".join([self.client.claim_task(item) for item in task_id_list])
 
