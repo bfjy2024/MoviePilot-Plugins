@@ -18,7 +18,7 @@ class NovaHD(NexusPHP):
 
     @staticmethod
     def get_site_domain():
-        return "pt.novahd.top"
+        return "novahd.top"
 
     def claim_task(self, task_id: str, rt_method=None):
         return super().claim_task(task_id, lambda response: response.json().get("msg", "未知错误"))
