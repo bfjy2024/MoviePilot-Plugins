@@ -666,5 +666,16 @@
     "history": {
       "v1.0.0": "初始版本"
     }
-  }   
+  },
+    "lxjcheckin":{
+      "name": "1052自动签到",
+      "version": "1.0.0",
+      "description": "1052api自动签到。",
+      "author": "bfjy",
+      "icon": "moviepilot_A.png",
+      "level": 2,
+      "history": {
+        "v1.0.0": "初始版本"
+      }
+    }   
 }
