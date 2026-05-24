@@ -17,7 +17,7 @@ from app.utils.http import RequestUtils
 class LxjCheckIn(_PluginBase):
     plugin_name = "1052自动签到"
     plugin_desc = "1052api自动签到。"
-    plugin_icon = "moviepilot_A.png"
+    plugin_icon = "Moviepilot_A.png"
     plugin_version = "1.0.0"
     plugin_author = "bfjy"
     author_url = "https://api.lxj.asia"
@@ -79,11 +79,24 @@ class LxjCheckIn(_PluginBase):
 
         try:
             logger.info(f"开始执行1052自动签到，URL: {checkin_url}")
-            res = RequestUtils(headers=headers, cookies=self._cookie).post_res(url=checkin_url, data="")
+            res = None
+            try:
+                res = RequestUtils(headers=headers, cookies=self._cookie).post_res(url=checkin_url, data="")
+            except Exception as request_error:
+                error_msg = f"请求 1052 签到接口失败：{request_error.__class__.__name__} {request_error}"
+                logger.error(error_msg, exc_info=True)
+                self.__save_sign_history(success=False, info=error_msg)
+                if self._notify:
+                    self.post_message(
+                        mtype=NotificationType.SiteMessage,
+                        title="【1052自动签到任务完成】",
+                        text=error_msg)
+                return
 
             if not res:
-                error_msg = "请求 1052 签到接口失败：无响应"
+                error_msg = "请求 1052 签到接口失败：无响应，RequestUtils 返回空响应。请检查网络、DNS 或接口是否可达。"
                 logger.error(error_msg)
+                self.__save_sign_history(success=False, info=error_msg)
                 if self._notify:
                     self.post_message(
                         mtype=NotificationType.SiteMessage,
