@@ -8,17 +8,17 @@
 #    def __init__(self, cookie):
 #        super().__init__(cookie)
 
-    @staticmethod
+#    @staticmethod
 #    def get_site_name():
 #        return "自由农场"
 
 #    @staticmethod
 #    def get_url():
-        return "https://pt.0ff.cc"
+#        return "https://pt.0ff.cc"
 
 #    @staticmethod
 #    def get_site_domain():
-        return "0ff.cc"
+#        return "0ff.cc"
 
 #    def claim_task(self, task_id: str, rt_method=None):
 #        return super().claim_task(task_id, lambda response: response.json().get("msg", "未知错误"))
