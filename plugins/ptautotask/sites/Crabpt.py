@@ -34,7 +34,7 @@ class Tasks(BaseTask):
         return "\n".join([self.client.claim_task(item) for item in task_id_list])
     
     @task_info(label="蟹黄堡任务领取", hint="领取蟹黄堡站点的力争全勤任务")
-    def daily_claim_task(self):
+    def monthly_claim_task(self):
         task_id_list = ["11"]
         return "\n".join([self.client.claim_task(item) for item in task_id_list])
     def daily_checkin(self):
