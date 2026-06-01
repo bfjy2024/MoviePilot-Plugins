@@ -1078,7 +1078,7 @@
     "name": "PT自动任务",
     "description": "用来执行一些站点的定期任务，包括但不限于签到、喊话、领取任务等；本版本在liuyunfz大佬插件基础上增加了若干其他站点周期性任务领取功能",
     "labels": "每日任务,喊话",
-    "version": "1.1.6",
+    "version": "1.1.7",
     "icon": "https://raw.githubusercontent.com/liuyunfz/MoviePilot-Plugins/main/icons/ptautotask.png",
     "author": "liuyunfz,bfjy",
     "level": 1,
