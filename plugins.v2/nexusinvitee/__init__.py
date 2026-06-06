@@ -424,7 +424,7 @@ class nexusinvitees(_PluginBase):
     # 插件描述
     plugin_desc = "管理添加到MP站点的邀请系统，包括邀请名额、已邀请用户状态等"
     # 插件图标
-    plugin_icon = "https://raw.githubusercontent.com/madrays/MoviePilot-Plugins/main/icons/nexusinvitees.png"
+    plugin_icon = "nexusinvitees.png"
     # 插件版本
     plugin_version = "1.3.0"
     # 插件作者
