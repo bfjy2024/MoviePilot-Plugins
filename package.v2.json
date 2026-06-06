@@ -681,9 +681,9 @@
   "nexusinvitees":{
     "name": "后宫管理系统(自改版)",
     "version": "1.3.0",
-    "description": "本插件基于madrays大佬插件改造而成，修复部分已知问题，优化了数据界面，仍有部分问题未解决",
+    "description": "基于madrays大佬插件改造而成，优化了数据界面",
     "author": "madrays,bfjy",
-    "icon": "nexusinvitees.png",
+    "icon": "https://raw.githubusercontent.com/madrays/MoviePilot-Plugins/main/icons/nexusinvitee.png",
     "level": 2,
     "history": {
       "v1.3.0": "自改版本，修复部分已知问题，优化了数据界面，仍有部分问题未解决"
