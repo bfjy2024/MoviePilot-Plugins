@@ -81,7 +81,7 @@ class PlayletLottery(_PluginBase):
     def get_command() -> List[Dict[str, Any]]:
         return [
             {
-                "cmd": "/playlet_lottery_run",
+                "cmd": "/plcj",
                 "event": EventType.PluginAction,
                 "desc": "立即执行 PlayLet 抽奖",
                 "category": "站点",
