@@ -623,11 +623,12 @@
     "name": "PlayLet自动抽奖助手",
     "description": "按每日目标次数自动拆解并执行 PlayLet 抽奖。",
     "labels": "抽奖，自动化",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "icon": "Moviepilot_A.png",
     "author": "jiangbkvir,bfjy",
     "level": 1,
     "history": {
+      "v1.1.0": "调整睡眠时间间隔，优化抽奖流程",
       "v1.0.0": "初始版本"
     }
   },
