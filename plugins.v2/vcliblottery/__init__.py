@@ -27,8 +27,8 @@ class VcLibLottery(_PluginBase):
     plugin_name = "Vc-Lib自动抽奖助手"
     plugin_desc = "按每日目标次数自动拆解并执行 Vc-Lib 抽奖。"
     plugin_icon = "Moviepilot_A.png"
-    plugin_version = "1.0.4"
-    plugin_author = "bfjy"
+    plugin_version = "1.0.1"
+    plugin_author = "bfjy,jiangbkvir"
     author_url = "https://bfjy2024.github.io/bfjy"
     plugin_config_prefix = "vcliblottery_"
     plugin_order = 30
