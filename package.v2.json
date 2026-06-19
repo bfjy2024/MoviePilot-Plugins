@@ -648,12 +648,14 @@
   },
     "YzyySignin":{
     "name": "Yzyy论坛签到",
-    "version": "1.0.2",
+    "version": "1.2.5",
     "description": "yzyy论坛每日签到。",
     "author": "bfjy",
     "icon": "yzyy_A.png",
     "level": 2,
     "history": {
+      "v1.2.5": "修复签到异常问题",
+      "v1.1.0": "修改签到逻辑",
       "v1.0.0": "初始版本"
     }
   },
