@@ -691,5 +691,16 @@
     "history": {
       "v1.3.0": "自改版本，修复部分已知问题，优化了数据界面，仍有部分问题未解决"
     }
-  }
+  },
+    "VcLibLottery":{
+      "name": "VcLib自动抽奖助手",
+      "version": "1.0.4",
+      "description": "根据抽奖目标次数拆解为10连抽与单抽，暂未适配百连抽",
+      "author": "bfjy,jiangbkvir",
+      "icon": "Moviepilot_A.png",
+      "level": 2,
+      "history": {
+        "v1.0.4": "微调数据库，修复部分已知问题",
+        "v1.0.0": "初始版本"
+      }
 }
