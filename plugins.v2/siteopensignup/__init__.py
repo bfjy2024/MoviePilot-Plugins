@@ -41,6 +41,7 @@ class SiteOpenSignup(_PluginBase):
     MAX_HISTORY = 100
     REQUEST_TIMEOUT = 30
     REQUEST_RETRY = 2
+    RETRY_DELAY = 1  # 重试间隔（秒）
 
     # 注册页URL后缀优先级（从高到低）
     SIGNUP_PATTERNS = [
@@ -112,6 +113,8 @@ class SiteOpenSignup(_PluginBase):
             self._scheduler.start()
             self._onlyonce = False
             self.__update_config()
+            
+        logger.info(f"站点开放注册监测插件初始化完成，启用状态: {self._enabled}")
 
     def get_state(self) -> bool:
         return self._enabled
@@ -605,36 +608,54 @@ class SiteOpenSignup(_PluginBase):
         self.__refresh_status()
 
     def __refresh_status(self):
-        logger.info("开始刷新站点开放注册状态...")
+        """刷新站点开放注册状态"""
+        logger.info("🔄 开始刷新站点开放注册状态...")
+        start_time = time.time()
         statuses = []
 
+        # 监测已有站点
         if self._monitor_existing_sites:
             existing_statuses = self.__monitor_existing_sites()
             statuses.extend(existing_statuses)
+            logger.info(f"✅ 已有站点监测完成: {len(existing_statuses)} 个站点")
 
+        # 监测自定义站点
         custom_statuses = self.__monitor_custom_sites()
         statuses.extend(custom_statuses)
+        logger.info(f"✅ 自定义站点监测完成: {len(custom_statuses)} 个站点")
 
+        # 更新缓存
         self._cached_statuses = statuses
         self.save_data('cached_statuses', statuses)
 
+        # 统计结果
+        open_count = sum(1 for s in statuses if s.get('status') == 'open')
+        closed_count = sum(1 for s in statuses if s.get('status') == 'closed')
+        error_count = sum(1 for s in statuses if s.get('status') == 'error')
+        elapsed = time.time() - start_time
+
+        logger.info(f"📊 刷新完成: 共 {len(statuses)} 个站点 (开放: {open_count}, 关闭: {closed_count}, 无响应: {error_count}), 耗时: {elapsed:.2f}s")
+
+        # 发送通知
         if self._notify and statuses:
             open_sites = [s for s in statuses if s.get('status') == 'open']
             if open_sites:
                 self.__send_open_notification(open_sites)
 
-        logger.info(f"站点开放注册状态刷新完成，共{len(statuses)}个站点")
-
     def __monitor_existing_sites(self) -> List[Dict[str, Any]]:
+        """监测已有站点"""
         statuses = []
         sites = SiteOper().list_order_by_pri()
+        logger.info(f"📋 开始监测 {len(sites)} 个已有站点")
 
-        for site in sites:
+        for idx, site in enumerate(sites):
             try:
+                logger.info(f"  🔍 [{idx+1}/{len(sites)}] 检查站点: {site.name}")
                 logo = self.__get_existing_site_logo(site)
 
                 register_url = self.__build_register_url(site.url)
                 if not register_url:
+                    logger.warning(f"    ⚠️ 无法构建注册页URL: {site.name}")
                     statuses.append({
                         'name': site.name,
                         'url': site.url,
@@ -655,25 +676,33 @@ class SiteOpenSignup(_PluginBase):
                 )
                 if status:
                     statuses.append(status)
+                    status_text = status.get('status', 'unknown')
+                    emoji = '🟢' if status_text == 'open' else '🔵' if status_text == 'closed' else '🔴'
+                    logger.info(f"    {emoji} {site.name}: {status_text}")
             except Exception as e:
-                logger.error(f"监测已有站点 {site.name} 失败: {e}")
+                logger.error(f"    ❌ 监测站点 {site.name} 失败: {e}")
 
         return statuses
 
     def __monitor_custom_sites(self) -> List[Dict[str, Any]]:
+        """监测自定义站点"""
         statuses = []
         if not self._custom_sites:
+            logger.info("📋 无自定义站点需要监测")
             return statuses
 
-        for site in self._custom_sites:
+        logger.info(f"📋 开始监测 {len(self._custom_sites)} 个自定义站点")
+
+        for idx, site in enumerate(self._custom_sites):
             try:
                 name = site.get('name', '')
                 url = site.get('url', '')
 
                 if not name or not url:
-                    logger.warning(f"自定义站点配置不完整: {site}")
+                    logger.warning(f"  ⚠️ 自定义站点配置不完整: {site}")
                     continue
 
+                logger.info(f"  🔍 [{idx+1}/{len(self._custom_sites)}] 检查自定义站点: {name}")
                 logo = self.__get_custom_site_logo(url)
 
                 status = self.__check_site_status(
@@ -685,8 +714,11 @@ class SiteOpenSignup(_PluginBase):
                 )
                 if status:
                     statuses.append(status)
+                    status_text = status.get('status', 'unknown')
+                    emoji = '🟢' if status_text == 'open' else '🔵' if status_text == 'closed' else '🔴'
+                    logger.info(f"    {emoji} {name}: {status_text}")
             except Exception as e:
-                logger.error(f"监测自定义站点 {site.get('name', '未知')} 失败: {e}")
+                logger.error(f"    ❌ 监测自定义站点 {site.get('name', '未知')} 失败: {e}")
 
         return statuses
 
@@ -731,11 +763,15 @@ class SiteOpenSignup(_PluginBase):
         return None
 
     def __check_site_status(self, name: str, url: str, site_url: str = "", logo: str = "", source: str = "未知") -> Optional[Dict[str, Any]]:
+        """检查单个站点的注册状态"""
         try:
+            logger.debug(f"    🌐 请求注册页: {url}")
+
             if url.endswith('/') or url.endswith('.com') or url.endswith('.org') or url.endswith('.net'):
                 built_url = self.__build_register_url(url)
                 if built_url:
                     url = built_url
+                    logger.debug(f"    🔄 使用构建的注册页URL: {url}")
                 else:
                     return {
                         'name': name,
@@ -757,6 +793,8 @@ class SiteOpenSignup(_PluginBase):
             last_error = ""
             for attempt in range(self.REQUEST_RETRY + 1):
                 try:
+                    if attempt > 0:
+                        logger.debug(f"    🔄 第 {attempt+1} 次重试...")
                     res = RequestUtils(
                         ua=settings.USER_AGENT,
                         proxies=settings.PROXY,
@@ -766,17 +804,21 @@ class SiteOpenSignup(_PluginBase):
                         break
                 except requests.exceptions.Timeout:
                     last_error = "请求超时"
+                    logger.debug(f"    ⏱️ 请求超时 (尝试 {attempt+1}/{self.REQUEST_RETRY+1})")
                     if attempt < self.REQUEST_RETRY:
-                        time.sleep(2)
+                        time.sleep(self.RETRY_DELAY)
                 except requests.exceptions.ConnectionError:
                     last_error = "连接失败"
+                    logger.debug(f"    🔌 连接失败 (尝试 {attempt+1}/{self.REQUEST_RETRY+1})")
                     if attempt < self.REQUEST_RETRY:
-                        time.sleep(2)
+                        time.sleep(self.RETRY_DELAY)
                 except Exception as e:
                     last_error = str(e)[:30]
+                    logger.debug(f"    ❌ 请求异常: {e}")
                     break
 
             if not res:
+                logger.debug(f"    ❌ 无响应: {last_error if last_error else '未知错误'}")
                 return {
                     'name': name,
                     'url': url,
@@ -786,6 +828,8 @@ class SiteOpenSignup(_PluginBase):
                     'last_check': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     'details': f'无响应 ({last_error})' if last_error else '无响应',
                 }
+
+            logger.debug(f"    📡 HTTP状态码: {res.status_code}")
 
             if res.status_code >= 500:
                 return {
@@ -831,6 +875,7 @@ class SiteOpenSignup(_PluginBase):
                 else:
                     status_type = 'closed'
 
+            logger.debug(f"    ✅ 检测结果: {status_type} - {reason}")
             return {
                 'name': name,
                 'url': url,
@@ -842,7 +887,7 @@ class SiteOpenSignup(_PluginBase):
             }
 
         except Exception as e:
-            logger.error(f"检查站点 {name} 注册状态异常: {e}")
+            logger.error(f"    ❌ 检查站点 {name} 异常: {e}")
             return {
                 'name': name,
                 'url': url,
@@ -854,6 +899,7 @@ class SiteOpenSignup(_PluginBase):
             }
 
     def __analyze_register_page(self, html: str) -> Tuple[bool, str]:
+        """分析注册页HTML，判断是否开放注册"""
         if not html:
             return False, "页面为空"
 
@@ -879,6 +925,7 @@ class SiteOpenSignup(_PluginBase):
         return False, "未检测到注册表单"
 
     def __extract_text(self, html: str) -> str:
+        """从HTML中提取纯文本"""
         html = re.sub(r'(?is)<script[^>]*>.*?</script>', '', html)
         html = re.sub(r'(?is)<style[^>]*>.*?</style>', '', html)
         html = re.sub(r'<[^>]+>', ' ', html)
@@ -888,6 +935,7 @@ class SiteOpenSignup(_PluginBase):
         return html.strip()
 
     def __send_open_notification(self, open_sites: List[Dict[str, Any]]):
+        """发送开放注册通知"""
         if not open_sites:
             return
 
@@ -906,4 +954,4 @@ class SiteOpenSignup(_PluginBase):
             title=title,
             text=text
         )
-        logger.info(f"已发送开放注册通知: {len(open_sites)} 个站点")
+        logger.info(f"📨 已发送开放注册通知: {len(open_sites)} 个站点")
