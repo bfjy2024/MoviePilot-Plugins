@@ -29,12 +29,12 @@ class HongdoubaoSignin(_PluginBase):
     # 插件基本信息
     plugin_name = "红豆包自动签到"
     plugin_desc = "自动签到红豆包PT站点，自动从站点管理获取Cookie"
-    plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/statistic.png"
-    plugin_version = "1.1.0"
+    plugin_icon = "statistic.png"
+    plugin_version = "1.0.3"
     plugin_author = "bfjy"
     author_url = "https://bfjy2024.github.io/bfjy"
     plugin_config_prefix = "hongdoubaosignin_"
-    plugin_order = 25
+    plugin_order = 21
     auth_level = 2
 
     # 常量配置
@@ -324,7 +324,7 @@ class HongdoubaoSignin(_PluginBase):
         try:
             site = SiteOper().get_by_domain(self.SITE_DOMAIN)
             if site and site.cookie:
-                logger.info(f"✅ 从站点管理获取到红豆包Cookie: {site.name}")
+                logger.info(f"✅ 从站点管理获取到红豆包Cookie")
                 return site.cookie.strip()
             else:
                 logger.warning(f"⚠️ 未找到红豆包站点配置或Cookie为空")
