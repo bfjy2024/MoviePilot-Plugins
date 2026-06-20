@@ -20,7 +20,7 @@ class YzyySignin(_PluginBase):
     plugin_name = "yzyy论坛签到"
     plugin_desc = "yzyy论坛每日签到，自动获取签到码完成签到"
     plugin_icon = "yzyy_A.png"
-    plugin_version = "1.2.5"
+    plugin_version = "1.2.6"
     plugin_author = "bfjy"
     author_url = "https://bfjy2024.github.io/bfjy"
     plugin_config_prefix = "yzyysignin_"
@@ -560,8 +560,10 @@ class YzyySignin(_PluginBase):
             button_status = self.__check_sign_button_status(page_html)
             if button_status == "already_signed":
                 logger.info("✅ 今日已签到（按钮显示今日已打卡）")
-                self.__save_history(success=True, info="今日已签到")
-                self.__send_notification("签到完成", "今日已签到")
+                # 提取签到信息
+                info = self.__extract_reward_info(page_html)
+                self.__save_history(success=True, info=f"今日已签到 | {info}" if info else "今日已签到")
+                self.__send_notification("签到完成", f"今日已签到 | {info}" if info else "今日已签到")
                 return
             elif button_status == "need_sign":
                 logger.info("📝 发现签到按钮，准备执行签到")
@@ -757,12 +759,17 @@ class YzyySignin(_PluginBase):
             import html as html_module
             decoded_html = html_module.unescape(html)
             
-            # 1. 检查是否已签到
+            # 1. 检查是否已签到或签到成功
             if "今日已打卡" in decoded_html or "今日已签到" in decoded_html:
                 info = self.__extract_reward_info(decoded_html)
                 return True, info or "今日已签到"
 
-            # 2. 检查签到成功关键词
+            # 2. 检查是否显示签到成功页面（包含打卡信息列表）
+            if "最近打卡" in decoded_html and "累计打卡" in decoded_html:
+                info = self.__extract_reward_info(decoded_html)
+                return True, info or "签到成功"
+
+            # 3. 检查签到成功关键词
             success_keywords = [
                 "签到成功", "签到完成", "签到获得", "签到奖励",
                 "打卡成功", "打卡获得"
@@ -772,12 +779,12 @@ class YzyySignin(_PluginBase):
                     info = self.__extract_reward_info(decoded_html)
                     return True, info or "签到成功"
 
-            # 3. 检查影币奖励
+            # 4. 检查影币奖励
             if "影币" in decoded_html:
                 info = self.__extract_reward_info(decoded_html)
                 return True, info or "签到成功（获得影币奖励）"
 
-            # 4. 检查错误信息
+            # 5. 检查错误信息
             error_keywords = ["错误", "失败", "权限不足", "禁止", "无效"]
             for keyword in error_keywords:
                 if keyword in decoded_html:
@@ -787,7 +794,7 @@ class YzyySignin(_PluginBase):
                         return False, f"签到错误: {error_text}"
                     return False, f"签到{keyword}"
 
-            # 5. 如果页面包含打卡日历，且无错误，可能成功了
+            # 6. 如果页面包含打卡日历或打卡统计，可能成功了
             if "打卡日历" in decoded_html or "打卡统计" in decoded_html:
                 info = self.__extract_reward_info(decoded_html)
                 return True, info or "签到完成"
@@ -798,50 +805,65 @@ class YzyySignin(_PluginBase):
             return False, f"解析签到结果异常: {str(e)}"
 
     def __extract_reward_info(self, html: str) -> str:
-        """提取签到奖励信息"""
-        info_parts = []
+        """提取签到奖励信息 - 精确匹配"""
+        try:
+            info_parts = []
 
-        # 提取影币奖励
-        coin_patterns = [
-            r'获得\s*(\d+)\s*影币',
-            r'影币\s*\+\s*(\d+)',
-            r'影币奖励\s*(\d+)',
-            r'奖励\s*(\d+)\s*影币',
-            r'获得影币\s*(\d+)',
-            r'(\d+)\s*影币'
-        ]
-        for pattern in coin_patterns:
-            match = re.search(pattern, html)
-            if match:
-                info_parts.append(f"获得 {match.group(1)} 影币")
-                break
+            # 1. 提取"最近奖励"（本次签到获得的影币）
+            recent_match = re.search(r'最近奖励[：:]\s*([\d.]+)\s*影币', html)
+            if recent_match:
+                value = recent_match.group(1).strip()
+                info_parts.append(f"获得 {value} 影币")
+            else:
+                # 备用：提取"累计奖励"（如果最近奖励没有）
+                total_match = re.search(r'累计奖励[：:]\s*([\d.]+)\s*影币', html)
+                if total_match:
+                    value = total_match.group(1).strip()
+                    info_parts.append(f"累计 {value} 影币")
 
-        # 提取签到天数
-        day_patterns = [
-            r'签到天数[：:]\s*(\d+)',
-            r'已签到\s*(\d+)\s*天',
-            r'连续签到\s*(\d+)\s*天',
-            r'累计签到\s*(\d+)\s*天'
-        ]
-        for pattern in day_patterns:
-            match = re.search(pattern, html)
-            if match:
-                info_parts.append(f"签到天数: {match.group(1)}")
-                break
+            # 2. 提取连续打卡天数
+            continuous_match = re.search(r'连续打卡[：:]\s*([\d.]+)\s*天', html)
+            if continuous_match:
+                value = continuous_match.group(1).strip()
+                info_parts.append(f"连续 {value} 天")
 
-        # 提取积分
-        point_patterns = [
-            r'积分[：:]\s*(\d+)',
-            r'获得\s*(\d+)\s*积分',
-            r'增加\s*(\d+)\s*积分'
-        ]
-        for pattern in point_patterns:
-            match = re.search(pattern, html)
-            if match:
-                info_parts.append(f"积分: {match.group(1)}")
-                break
+            # 3. 提取累计打卡天数
+            total_days_match = re.search(r'累计打卡[：:]\s*([\d.]+)\s*天', html)
+            if total_days_match:
+                value = total_days_match.group(1).strip()
+                info_parts.append(f"累计 {value} 天")
 
-        return " | ".join(info_parts) if info_parts else ""
+            # 4. 提取本月打卡天数
+            month_match = re.search(r'本月打卡[：:]\s*([\d.]+)\s*天', html)
+            if month_match:
+                value = month_match.group(1).strip()
+                info_parts.append(f"本月 {value} 天")
+
+            # 5. 提取打卡等级
+            level_match = re.search(r'当前打卡等级[：:]\s*([^\s<]+)', html)
+            if level_match:
+                level = level_match.group(1).strip()
+                info_parts.append(f"等级: {level}")
+
+            # 6. 提取"最近打卡"时间
+            time_match = re.search(r'最近打卡[：:]\s*([\d\-:\s]+)', html)
+            if time_match:
+                # 不加入奖励信息，只作为日志
+                logger.debug(f"最近打卡时间: {time_match.group(1).strip()}")
+
+            # 如果没有提取到任何信息
+            if not info_parts:
+                # 尝试检查是否有影币关键词
+                if "影币" in html:
+                    info_parts.append("签到成功")
+                else:
+                    return ""
+
+            return " | ".join(info_parts)
+
+        except Exception as e:
+            logger.error(f"提取奖励信息异常: {e}")
+            return ""
 
     def __build_headers(self) -> Dict[str, str]:
         """构建请求头"""
