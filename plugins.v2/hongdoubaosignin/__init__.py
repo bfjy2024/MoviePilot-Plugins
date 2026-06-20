@@ -1,5 +1,5 @@
 """
-红豆包自动签到插件
+红豆包自动签到插件 - 自动获取Cookie
 """
 import re
 import json
@@ -28,9 +28,9 @@ class HongdoubaoSignin(_PluginBase):
 
     # 插件基本信息
     plugin_name = "红豆包自动签到"
-    plugin_desc = "自动签到红豆包PT站点，支持表单提交签到"
+    plugin_desc = "自动签到红豆包PT站点，自动从站点管理获取Cookie"
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/statistic.png"
-    plugin_version = "1.0.1"
+    plugin_version = "1.1.0"
     plugin_author = "bfjy"
     author_url = "https://bfjy2024.github.io/bfjy"
     plugin_config_prefix = "hongdoubaosignin_"
@@ -41,6 +41,7 @@ class HongdoubaoSignin(_PluginBase):
     BASE_URL = "https://hdbao.cc"
     SIGNIN_URL = f"{BASE_URL}/attendance.php"
     INDEX_URL = f"{BASE_URL}/index.php"
+    SITE_DOMAIN = "hdbao.cc"
     MAX_HISTORY = 100
     REQUEST_TIMEOUT = 30
 
@@ -48,7 +49,6 @@ class HongdoubaoSignin(_PluginBase):
     _enabled: bool = False
     _onlyonce: bool = False
     _cron: str = ""
-    _cookie: str = ""
     _notify: bool = False
     _scheduler: Optional[BackgroundScheduler] = None
     _lock: threading.Lock = threading.Lock()
@@ -61,7 +61,6 @@ class HongdoubaoSignin(_PluginBase):
             self._enabled = config.get("enabled", False)
             self._onlyonce = config.get("onlyonce", False)
             self._cron = config.get("cron", "")
-            self._cookie = config.get("cookie", "")
             self._notify = config.get("notify", False)
 
         if self._onlyonce:
@@ -70,7 +69,6 @@ class HongdoubaoSignin(_PluginBase):
                 "enabled": self._enabled,
                 "onlyonce": False,
                 "cron": self._cron,
-                "cookie": self._cookie,
                 "notify": self._notify,
             })
             logger.info("收到立即运行请求，后台启动签到任务")
@@ -183,25 +181,6 @@ class HongdoubaoSignin(_PluginBase):
                     },
                     {
                         'component': 'VRow',
-                        'content': [
-                            {
-                                'component': 'VCol',
-                                'props': {'cols': 12},
-                                'content': [{
-                                    'component': 'VTextarea',
-                                    'props': {
-                                        'model': 'cookie',
-                                        'label': '🔑 红豆包 Cookie',
-                                        'rows': 2,
-                                        'placeholder': 'c_secure_pass=xxxxxx; ...',
-                                        'hint': '请从浏览器复制完整的Cookie字符串'
-                                    }
-                                }]
-                            }
-                        ]
-                    },
-                    {
-                        'component': 'VRow',
                         'content': [{
                             'component': 'VCol',
                             'props': {'cols': 12},
@@ -210,7 +189,7 @@ class HongdoubaoSignin(_PluginBase):
                                 'props': {
                                     'type': 'info',
                                     'variant': 'tonal',
-                                    'text': '📌 使用说明：\n1. 插件会自动访问签到页面并提交签到表单\n2. 签到按钮为表单提交方式，插件会模拟完整提交流程\n3. 请确保Cookie中包含有效的 c_secure_pass 字段'
+                                    'text': '📌 使用说明：\n1. 插件会自动从站点管理中读取红豆包的Cookie\n2. 请先在站点管理中配置红豆包站点Cookie\n3. 签到成功后会自动记录签到信息'
                                 }
                             }]
                         }]
@@ -221,7 +200,6 @@ class HongdoubaoSignin(_PluginBase):
             "enabled": False,
             "onlyonce": False,
             "cron": "0 8 * * *",
-            "cookie": "",
             "notify": True,
         }
 
@@ -298,8 +276,6 @@ class HongdoubaoSignin(_PluginBase):
     def __sign_api(self) -> Dict[str, Any]:
         if self._lock.locked():
             return {"success": False, "message": "已有签到任务正在运行"}
-        if not self._cookie:
-            return {"success": False, "message": "Cookie未配置"}
         threading.Thread(target=self.__signin, daemon=True).start()
         return {"success": True, "message": "签到任务已启动"}
 
@@ -344,11 +320,17 @@ class HongdoubaoSignin(_PluginBase):
         self.save_data('history', history)
 
     def __get_site_cookie(self) -> str:
+        """从站点管理获取Cookie"""
         try:
-            site = SiteOper().get_by_domain("hdbao.cc")
-            return (site.cookie or "").strip() if site else ""
+            site = SiteOper().get_by_domain(self.SITE_DOMAIN)
+            if site and site.cookie:
+                logger.info(f"✅ 从站点管理获取到红豆包Cookie: {site.name}")
+                return site.cookie.strip()
+            else:
+                logger.warning(f"⚠️ 未找到红豆包站点配置或Cookie为空")
+                return ""
         except Exception as err:
-            logger.debug(f"读取红豆包站点Cookie失败: {err}")
+            logger.error(f"读取红豆包站点Cookie失败: {err}")
             return ""
 
     @eventmanager.register(EventType.PluginAction)
@@ -376,11 +358,12 @@ class HongdoubaoSignin(_PluginBase):
         try:
             logger.info("🔄 开始执行红豆包签到任务")
 
-            cookie = self._cookie or self.__get_site_cookie()
+            # 从站点管理获取Cookie
+            cookie = self.__get_site_cookie()
             if not cookie:
                 logger.error("Cookie未获取到，任务终止")
-                self.__save_history(False, "Cookie未配置")
-                self.__send_notification("签到失败", "Cookie未配置，请检查插件设置")
+                self.__save_history(False, "未找到红豆包站点Cookie，请先在站点管理中配置")
+                self.__send_notification("签到失败", "未找到红豆包站点Cookie，请先在站点管理中配置")
                 return
 
             # 1. 访问签到页面，获取表单数据
@@ -389,7 +372,6 @@ class HongdoubaoSignin(_PluginBase):
             
             if page_result.get('already_signed'):
                 logger.info("✅ 今日已签到")
-                # 提取奖励信息
                 reward = self.__extract_reward(page_result.get('html', ''))
                 self.__save_history(True, f"今日已签到 | {reward}" if reward else "今日已签到")
                 self.__send_notification("签到完成", f"今日已签到 | {reward}" if reward else "今日已签到")
@@ -397,8 +379,8 @@ class HongdoubaoSignin(_PluginBase):
 
             if page_result.get('need_login'):
                 logger.error("❌ Cookie已失效，需要重新登录")
-                self.__save_history(False, "Cookie已失效")
-                self.__send_notification("签到失败", "Cookie已失效，请重新登录")
+                self.__save_history(False, "Cookie已失效，请重新登录站点管理更新Cookie")
+                self.__send_notification("签到失败", "Cookie已失效，请重新登录站点管理更新Cookie")
                 return
 
             # 2. 获取表单数据
@@ -697,11 +679,3 @@ class HongdoubaoSignin(_PluginBase):
             return fail_match.group(0).strip()[:100]
         
         return ''
-
-    def __get_site_cookie(self) -> str:
-        try:
-            site = SiteOper().get_by_domain("hdbao.cc")
-            return (site.cookie or "").strip() if site else ""
-        except Exception as err:
-            logger.debug(f"读取红豆包站点Cookie失败: {err}")
-            return ""
