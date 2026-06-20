@@ -704,5 +704,17 @@
       "v1.0.1": "微调数据库，修复部分已知问题",
       "v1.0.0": "初始版本"
     }
+  },
+    "SiteOpenSignup":{
+    "name": "站点开放注册监测",
+    "version": "1.1.0",
+    "description": "自动监测站点注册页面状态，检测是否开放注册",
+    "author": "bfjy",
+    "icon": "statistic.png",
+    "level": 2,
+    "history": {
+      "v1.1.1": "更新UI",
+      "v1.0.0": "初始版本"
+    }
   }
 }
