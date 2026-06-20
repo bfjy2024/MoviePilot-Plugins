@@ -719,9 +719,9 @@
     }
   },
   "hongdoubaosignin":{
-    "name": "红豆包站点签到",
+    "name": "红豆包自动签到",
     "version": "1.1.0",
-    "description": "红豆包站点每日签到。",
+    "description": "红豆包站点每日签到，自动从站点管理获取Cookie",
     "author": "bfjy",
     "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/statistic.png",
     "level": 2,
