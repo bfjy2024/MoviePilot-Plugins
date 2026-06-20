@@ -1,0 +1,17 @@
+# 站点开放注册监测插件依赖
+# MoviePilot 插件依赖管理
+
+# Cloudflare 绕过 - 用于访问受 Cloudflare 保护的站点
+cloudscraper>=1.2.71
+
+# HTTP 请求库（MoviePilot 已内置，此处仅为版本参考）
+requests>=2.31.0
+
+# 定时任务调度（MoviePilot 已内置）
+apscheduler>=3.10.0
+
+# 时区处理（MoviePilot 已内置）
+pytz>=2023.3
+
+# HTML 解析（MoviePilot 已内置）
+lxml>=4.9.0

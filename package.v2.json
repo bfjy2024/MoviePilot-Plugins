@@ -716,5 +716,16 @@
       "v1.1.1": "更新UI",
       "v1.0.0": "初始版本"
     }
-  }
+  },
+  "hongdoubaosignin":{
+    "name": "红豆包站点签到",
+    "version": "1.0.1",
+    "description": "红豆包站点每日签到。",
+    "author": "bfjy",
+    "icon": "signin.png",
+    "level": 2,
+    "history": {
+      "v1.0.1": "修复签到数据返回异常问题",
+      "v1.0.0": "初始版本"
+    }
 }
