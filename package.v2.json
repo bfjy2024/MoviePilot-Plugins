@@ -721,7 +721,7 @@
   "HongdoubaoSignin":{
     "name": "红豆包自动签到",
     "version": "1.0.3",
-    "description": "红豆包站点每日签到，自动从站点管理获取Cookie",
+    "description": "自动签到红豆包PT站点，自动从站点管理获取Cookie",
     "author": "bfjy",
     "icon": "statistic.png",
     "level": 2,
