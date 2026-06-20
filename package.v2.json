@@ -718,7 +718,7 @@
       "v1.0.0": "初始版本"
     }
   },
-  "hongdoubaosignin":{
+  "HongdoubaoSignin":{
     "name": "红豆包自动签到",
     "version": "1.0.3",
     "description": "红豆包站点每日签到，自动从站点管理获取Cookie",
